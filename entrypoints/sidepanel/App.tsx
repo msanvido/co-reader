@@ -1,0 +1,378 @@
+import { useState, useEffect, useRef } from 'preact/hooks'
+import {
+  RELATIONSHIP_COLORS,
+  RELATIONSHIP_LABELS,
+  RELATIONSHIP_ARROWS,
+} from '@/utils/constants'
+import type {
+  CrossReference,
+  Settings,
+  ProviderID,
+} from '@/utils/types'
+import { DEFAULT_SETTINGS } from '@/utils/types'
+import { PROVIDER_CONFIGS } from '@/entrypoints/background/providers/types'
+
+interface ParagraphData {
+  id: string; role: string; summary: string; originalText: string
+  highlights: Array<{ text: string; category: string; explanation: string }>
+  crossReferences: CrossReference[]
+}
+
+interface AnalysisData {
+  thesis: string; keyTerms: string[]
+  sections: Array<{ title: string; role: string; summary: string }>
+  paragraphs: ParagraphData[]
+}
+
+type AnalysisState = 'idle' | 'running' | 'done' | 'error'
+
+interface Status {
+  state: AnalysisState; message: string
+  paragraphsFound: number; paragraphsAnalyzed: number
+}
+
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
+
+async function sendToTab(msg: any): Promise<any> {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+  if (!tab?.id) return null
+  try { return await chrome.tabs.sendMessage(tab.id, msg) } catch { return null }
+}
+
+// ─── Main App ─────────────────────────────────────────────────────────────────
+
+export function App() {
+  const [showSettings, setShowSettings] = useState(false)
+  const [status, setStatus] = useState<Status>({ state: 'idle', message: '', paragraphsFound: 0, paragraphsAnalyzed: 0 })
+  const [data, setData] = useState<AnalysisData | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [activeParaId, _setActiveParaId] = useState<string | null>(null)
+  const activeParaIdRef = useRef<string | null>(null)
+  const [backendInfo, setBackendInfo] = useState('')
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const paraRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const dataRef = useRef<AnalysisData | null>(null)
+
+  // Keep ref and state in sync
+  function setActiveParaId(id: string | null) {
+    activeParaIdRef.current = id
+    _setActiveParaId(id)
+  }
+
+  useEffect(() => {
+    pollStatus()
+    loadBackendInfo()
+    pollRef.current = setInterval(pollStatus, 1200)
+
+    chrome.runtime.onMessage.addListener((msg) => {
+      if (msg?.type === 'ANALYSIS_DONE' || msg?.type === 'ANALYSIS_PROGRESS') {
+        pollStatus()
+        fetchData()
+      }
+      // User clicked a paragraph on the page → sync panel + highlight
+      if (msg?.type === 'PARA_CLICKED' && msg.paragraphId) {
+        const paraId = msg.paragraphId
+        setActiveParaId(paraId)
+        // Scroll side panel to this paragraph
+        const el = paraRefs.current[paraId]
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        // Send highlights to the page
+        const para = dataRef.current?.paragraphs.find((p: any) => p.id === paraId)
+        if (para) {
+          sendToTab({ type: 'SELECT_PARA', paragraphId: paraId, highlights: para.highlights })
+        }
+      }
+    })
+
+    // Detect tab changes or navigation — reset the panel
+    chrome.tabs.onActivated.addListener(() => reset())
+    chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
+      if (changeInfo.url || changeInfo.status === 'complete') reset()
+    })
+
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [])
+
+  function reset() {
+    setData(null)
+    setExpandedId(null)
+    setActiveParaId(null)
+    setStatus({ state: 'idle', message: '', paragraphsFound: 0, paragraphsAnalyzed: 0 })
+    // Give the new page a moment to load, then poll
+    setTimeout(pollStatus, 500)
+  }
+
+  // Scroll sync: poll which paragraph is currently visible in the article
+  useEffect(() => {
+    if (!data) return
+    const syncInterval = setInterval(async () => {
+      const result = await sendToTab({ type: 'GET_VISIBLE_PARA' })
+      if (result?.id && result.id !== activeParaIdRef.current) {
+        setActiveParaId(result.id)
+        const el = paraRefs.current[result.id]
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }, 800)
+    return () => clearInterval(syncInterval)
+  }, [data])
+
+  async function loadBackendInfo() {
+    try {
+      const s = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' })
+      if (s) {
+        const config = PROVIDER_CONFIGS[s.provider as ProviderID]
+        setBackendInfo(`${config?.name ?? s.provider} · ${s.model}`)
+      }
+    } catch {}
+  }
+
+  async function pollStatus() {
+    const s = await sendToTab({ type: 'GET_STATUS' })
+    if (s) {
+      setStatus(s)
+      if (s.state === 'done' || (s.state === 'running' && s.paragraphsAnalyzed > 0)) fetchData()
+    }
+  }
+
+  async function fetchData() {
+    const result = await sendToTab({ type: 'GET_ANALYSIS' })
+    if (result?.data) { setData(result.data); dataRef.current = result.data }
+  }
+
+  async function handleStart() {
+    setData(null)
+    await sendToTab({ type: 'START_ANALYSIS' })
+    if (pollRef.current) clearInterval(pollRef.current)
+    pollRef.current = setInterval(pollStatus, 800)
+  }
+
+  async function handleStop() {
+    await sendToTab({ type: 'STOP_ANALYSIS' })
+    pollStatus()
+  }
+
+  function selectParagraph(paraId: string) {
+    // Scroll article to this paragraph AND highlight its key phrases
+    const para = data?.paragraphs.find(p => p.id === paraId)
+    sendToTab({
+      type: 'SELECT_PARA',
+      paragraphId: paraId,
+      highlights: para?.highlights ?? [],
+    })
+    setActiveParaId(paraId)
+  }
+
+  return (
+    <div class="panel">
+      <header class="panel-header">
+        <span class="panel-logo">co-reader</span>
+        <button
+          class={`settings-btn${showSettings ? ' settings-btn--active' : ''}`}
+          onClick={() => { setShowSettings(!showSettings); if (showSettings) loadBackendInfo() }}
+        >{showSettings ? '✕' : '⚙'}</button>
+      </header>
+
+      {showSettings ? <SettingsPanel /> : (
+        <>
+          <ControlBar status={status} onStart={handleStart} onStop={handleStop} />
+
+          {data && (
+            <div class="reading-guide">
+              {data.thesis && (
+                <div class="guide-thesis">{data.thesis}</div>
+              )}
+
+              {data.paragraphs.map((para, i) => (
+                <div
+                  key={para.id}
+                  ref={(el) => { paraRefs.current[para.id] = el }}
+                  class={`guide-card${activeParaId === para.id ? ' guide-card--active' : ''}`}
+                >
+                  {/* Click → scroll to paragraph + highlight key phrases in article */}
+                  <div class="guide-row" onClick={() => selectParagraph(para.id)}>
+                    <span class="guide-num">{i + 1}</span>
+                    <span class="guide-summary">{para.summary}</span>
+                  </div>
+
+                  {/* Cross-reference links only (highlights are on the page) */}
+                  {para.crossReferences.length > 0 && activeParaId === para.id && (
+                    <div class="guide-tags">
+                      {para.crossReferences.map((ref, j) => {
+                        const idx = data.paragraphs.findIndex(p => p.id === ref.targetParagraphId) + 1
+                        const color = RELATIONSHIP_COLORS[ref.relationship] ?? '#9E9E9E'
+                        const arrow = RELATIONSHIP_ARROWS[ref.relationship] ?? '→'
+                        return (
+                          <button
+                            key={`x${j}`}
+                            class="tag tag--xref"
+                            style={`border-color:${color}`}
+                            title={`${RELATIONSHIP_LABELS[ref.relationship]}: ${ref.description}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (idx > 0) selectParagraph(ref.targetParagraphId)
+                            }}
+                          >
+                            {arrow} ¶{idx > 0 ? idx : '?'} {ref.description}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!data && status.state !== 'running' && (
+            <div class="panel-empty">
+              <p class="panel-empty-title">
+                {status.paragraphsFound > 0
+                  ? `${status.paragraphsFound} paragraphs detected`
+                  : 'Navigate to an article'}
+              </p>
+              <p class="panel-empty-desc">
+                {status.paragraphsFound > 0
+                  ? 'Click "Start" to analyze.'
+                  : 'Open an article, then click "Start".'}
+              </p>
+            </div>
+          )}
+        </>
+      )}
+
+      {backendInfo && <footer class="panel-footer">{backendInfo}</footer>}
+    </div>
+  )
+}
+
+// ─── Control Bar ──────────────────────────────────────────────────────────────
+
+function ControlBar({ status, onStart, onStop }: {
+  status: Status; onStart: () => void; onStop: () => void
+}) {
+  const isRunning = status.state === 'running'
+  const isDone = status.state === 'done'
+  const isError = status.state === 'error'
+  const pct = Math.round(status.paragraphsAnalyzed / Math.max(1, status.paragraphsFound) * 100)
+
+  return (
+    <div class="control-bar">
+      <div class="control-left">
+        {isRunning && (
+          <>
+            <div class="control-msg">{status.message}</div>
+            <div class="control-progress">
+              <div class="progress-bar"><div class="progress-fill" style={`width:${pct}%`} /></div>
+              <span class="progress-text">{status.paragraphsAnalyzed}/{status.paragraphsFound}</span>
+            </div>
+          </>
+        )}
+        {isDone && <div class="control-msg control-msg--done">{status.message}</div>}
+        {isError && <div class="control-msg control-msg--error">{status.message}</div>}
+        {status.state === 'idle' && (
+          <div class="control-msg">
+            {status.paragraphsFound > 0 ? `${status.paragraphsFound} paragraphs` : 'No page loaded'}
+          </div>
+        )}
+      </div>
+      {isRunning ? (
+        <button class="ctrl-btn ctrl-btn--stop" onClick={onStop}>Stop</button>
+      ) : (
+        <button class="ctrl-btn ctrl-btn--start" onClick={onStart} disabled={status.paragraphsFound === 0}>
+          {isDone ? 'Redo' : 'Start'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Settings Panel ───────────────────────────────────────────────────────────
+
+function SettingsPanel() {
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
+  const [status, setStatus] = useState<'checking' | 'ok' | 'error'>('checking')
+  const [statusMsg, setStatusMsg] = useState('Checking...')
+  const [editingKey, setEditingKey] = useState(false)
+  const [keyDraft, setKeyDraft] = useState('')
+  const [keyVisible, setKeyVisible] = useState(false)
+  const keyRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { loadAndTest() }, [])
+
+  async function loadAndTest() {
+    try {
+      const s = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' })
+      setSettings(s); setKeyDraft(s.apiKey)
+      const config = PROVIDER_CONFIGS[s.provider as ProviderID]
+      if (config.requiresKey && !s.apiKey) { setStatus('error'); setStatusMsg('No API key'); setEditingKey(true); return }
+      setStatus('checking'); setStatusMsg('Verifying...')
+      const r = await chrome.runtime.sendMessage({ type: 'TEST_API_KEY' })
+      if (r?.ok) { setStatus('ok'); setStatusMsg(`Connected to ${config.name}`) }
+      else { setStatus('error'); setStatusMsg(r?.error ?? 'Failed') }
+    } catch { setStatus('error'); setStatusMsg('Service worker error') }
+  }
+
+  async function save(patch: Partial<Settings>) {
+    const u = { ...settings, ...patch }; setSettings(u)
+    await chrome.runtime.sendMessage({ type: 'UPDATE_SETTINGS', payload: u })
+  }
+  async function saveKey() { await save({ apiKey: keyDraft.trim() }); setEditingKey(false); loadAndTest() }
+  function changeProvider(id: ProviderID) {
+    const c = PROVIDER_CONFIGS[id]
+    save({ provider: id, model: c.defaultModel, apiKey: id === settings.provider ? settings.apiKey : '' })
+    setKeyDraft(''); setEditingKey(c.requiresKey)
+  }
+
+  const config = PROVIDER_CONFIGS[settings.provider]
+  const dotColor = status === 'ok' ? '#44CC44' : status === 'error' ? '#FF4444' : '#FFAA00'
+  const masked = settings.apiKey ? settings.apiKey.slice(0, 8) + '••••' + settings.apiKey.slice(-4) : ''
+
+  return (
+    <div class="settings-panel">
+      <div class={`status-bar status-bar--${status === 'ok' ? 'connected' : status}`}>
+        <span class="status-dot" style={`background:${dotColor};box-shadow:0 0 6px ${dotColor}`} />
+        <span class="status-msg">{statusMsg}</span>
+      </div>
+      <section class="popup-section">
+        <label class="popup-label">Provider</label>
+        <select class="provider-select" value={settings.provider} onChange={(e) => changeProvider((e.target as HTMLSelectElement).value as ProviderID)}>
+          {Object.values(PROVIDER_CONFIGS).map(p => <option key={p.id} value={p.id}>{p.name}{p.requiresKey ? '' : ' (free)'}</option>)}
+        </select>
+      </section>
+      <section class="popup-section">
+        <label class="popup-label">Model</label>
+        <select class="provider-select" value={settings.model} onChange={(e) => save({ model: (e.target as HTMLSelectElement).value })}>
+          {config.models.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </section>
+      {config.requiresKey && (
+        <section class="popup-section">
+          <label class="popup-label">API Key <a href={config.helpUrl} target="_blank" rel="noopener noreferrer" class="hint-link" style="margin-left:6px">Get key →</a></label>
+          {!editingKey && settings.apiKey ? (
+            <div class="key-display">
+              <code class="key-masked">{masked}</code>
+              <button class="change-btn" onClick={() => { setEditingKey(true); setKeyDraft(settings.apiKey); setTimeout(() => keyRef.current?.focus(), 50) }}>Change</button>
+            </div>
+          ) : (
+            <div class="key-edit">
+              <input ref={keyRef} type={keyVisible ? 'text' : 'password'} class="api-key-input" value={keyDraft} placeholder={config.keyPlaceholder} autoFocus onInput={(e) => setKeyDraft((e.target as HTMLInputElement).value)} onKeyDown={(e) => e.key === 'Enter' && saveKey()} />
+              <div class="key-actions">
+                <button class="icon-btn" onClick={() => setKeyVisible(!keyVisible)}>{keyVisible ? '🙈' : '👁'}</button>
+                <button class="save-btn" onClick={saveKey} disabled={!keyDraft.trim()}>Save</button>
+                {settings.apiKey && <button class="cancel-btn" onClick={() => setEditingKey(false)}>Cancel</button>}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+      <section class="popup-section">
+        <label class="toggle-row">
+          <span>Enable</span>
+          <button class={`toggle ${settings.enabled ? 'toggle--on' : ''}`} onClick={() => save({ enabled: !settings.enabled })}>
+            {settings.enabled ? 'ON' : 'OFF'}
+          </button>
+        </label>
+      </section>
+    </div>
+  )
+}

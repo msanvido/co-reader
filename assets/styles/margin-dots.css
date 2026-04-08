@@ -1,0 +1,19 @@
+@layer co-reader {
+  .cr-margin-dot {
+    display: inline-block;
+    position: absolute;
+    left: -20px;
+    top: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+
+  .cr-margin-dot[data-category="KEY_CLAIM"]  { background: #D4A800; }
+  .cr-margin-dot[data-category="EVIDENCE"]   { background: #28A660; }
+  .cr-margin-dot[data-category="DEFINITION"] { background: #2B7DD4; }
+  .cr-margin-dot[data-category="CAVEAT"]     { background: #E07020; }
+  .cr-margin-dot[data-category="EXAMPLE"]    { background: #8050C8; }
+}

@@ -1,0 +1,137 @@
+@layer co-reader {
+  /* ── Tooltip container ───────────────────────────────────────────────────── */
+
+  .cr-tooltip {
+    position: absolute;
+    z-index: 2147483647; /* max z-index */
+    width: min(420px, calc(100vw - 32px));
+    background: rgba(28, 28, 30, 0.94);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    padding: 12px 16px;
+    color: #F0F0F0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+  }
+
+  .cr-tooltip--visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  /* ── Header ──────────────────────────────────────────────────────────────── */
+
+  .cr-tooltip-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .cr-role-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* ── Divider ─────────────────────────────────────────────────────────────── */
+
+  .cr-tooltip-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 8px 0;
+  }
+
+  /* ── Summary text ────────────────────────────────────────────────────────── */
+
+  .cr-tooltip-summary {
+    margin: 0;
+    color: #E8E8E8;
+    line-height: 1.6;
+  }
+
+  .cr-tooltip-error {
+    margin: 0;
+    color: #FF9999;
+    font-size: 13px;
+  }
+
+  /* ── Cross-reference chips ───────────────────────────────────────────────── */
+
+  .cr-xref-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .cr-xref-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    color: #D0D0D0;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .cr-xref-chip:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .cr-xref-arrow { font-size: 13px; }
+
+  /* ── Deep dive button ────────────────────────────────────────────────────── */
+
+  .cr-deep-dive-btn {
+    background: none;
+    border: none;
+    color: #6AAFFF;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0;
+    margin-top: 2px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .cr-deep-dive-btn:hover { color: #8DC8FF; }
+
+  /* ── Skeleton loading ────────────────────────────────────────────────────── */
+
+  @keyframes cr-shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .cr-tooltip-skeleton {
+    height: 48px;
+    border-radius: 4px;
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0.05) 25%,
+      rgba(255,255,255,0.12) 50%,
+      rgba(255,255,255,0.05) 75%
+    );
+    background-size: 200% 100%;
+    animation: cr-shimmer 1.4s infinite;
+  }
+}

@@ -1,0 +1,74 @@
+import type { LLMProvider } from './types'
+
+const API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const MAX_RETRIES = 3
+
+export function createOpenRouterProvider(apiKey: string, model: string): LLMProvider {
+  return {
+    name: 'OpenRouter',
+
+    async call(system, userPrompt, maxTokens) {
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'HTTP-Referer': 'https://co-reader.extension',
+            'X-Title': 'co-reader',
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: maxTokens,
+            messages: [
+              { role: 'system', content: system },
+              { role: 'user', content: userPrompt },
+            ],
+          }),
+        })
+
+        if (isRetryable(response.status) && attempt < MAX_RETRIES) {
+          const ms = (2 ** attempt) * 3000
+          console.log(`[co-reader] OpenRouter ${response.status} — retry in ${ms}ms`)
+          await new Promise(r => setTimeout(r, ms))
+          continue
+        }
+
+        if (!response.ok) {
+          const body = await response.text()
+          try { throw new Error(JSON.parse(body)?.error?.message ?? `API ${response.status}`) }
+          catch (e) { if (e instanceof Error) throw e; throw new Error(`OpenRouter ${response.status}: ${body.slice(0, 200)}`) }
+        }
+
+        const data = await response.json()
+        return data.choices?.[0]?.message?.content ?? ''
+      }
+      throw new Error('Max retries exceeded')
+    },
+
+    async test() {
+      try {
+        const resp = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'openai/gpt-4o-mini',
+            max_tokens: 1,
+            messages: [{ role: 'user', content: 'hi' }],
+          }),
+        })
+        if (resp.ok) return { ok: true }
+        const body = await resp.text()
+        try { return { ok: false, error: JSON.parse(body)?.error?.message ?? `API ${resp.status}` } }
+        catch { return { ok: false, error: `API ${resp.status}` } }
+      } catch (e) {
+        return { ok: false, error: String(e) }
+      }
+    },
+  }
+}
+
+function isRetryable(status: number) { return status === 429 || status >= 500 }

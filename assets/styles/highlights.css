@@ -1,0 +1,57 @@
+@layer co-reader {
+  /* ── Highlight marks ─────────────────────────────────────────────────────── */
+
+  mark.cr-highlight {
+    border-radius: 2px;
+    padding: 1px 0;
+    cursor: help;
+    transition: opacity 0.15s ease;
+  }
+
+  mark.cr-highlight:hover {
+    opacity: 0.75;
+  }
+
+  /* Light mode (default) */
+  mark.cr-highlight-key-claim  { background-color: #FFF3B0 !important; color: inherit; }
+  mark.cr-highlight-evidence   { background-color: #C8F0D8 !important; color: inherit; }
+  mark.cr-highlight-definition { background-color: #D4E8FF !important; color: inherit; }
+  mark.cr-highlight-caveat     { background-color: #FFE4CC !important; color: inherit; }
+  mark.cr-highlight-example    { background-color: #EEE0FF !important; color: inherit; }
+
+  /* Dark mode */
+  @media (prefers-color-scheme: dark) {
+    mark.cr-highlight-key-claim  { background-color: #4A3F00 !important; color: #FFF3B0; }
+    mark.cr-highlight-evidence   { background-color: #0D3D20 !important; color: #C8F0D8; }
+    mark.cr-highlight-definition { background-color: #0A2A4A !important; color: #D4E8FF; }
+    mark.cr-highlight-caveat     { background-color: #4A2000 !important; color: #FFE4CC; }
+    mark.cr-highlight-example    { background-color: #2A1A4A !important; color: #EEE0FF; }
+  }
+
+  /* ── Pulse animation ─────────────────────────────────────────────────────── */
+
+  @keyframes cr-pulse {
+    0%   { outline: 2px solid transparent; outline-offset: 2px; }
+    20%  { outline: 2px solid #4A90D9; outline-offset: 4px; }
+    80%  { outline: 2px solid #4A90D9; outline-offset: 4px; }
+    100% { outline: 2px solid transparent; outline-offset: 2px; }
+  }
+
+  .cr-pulse {
+    animation: cr-pulse 2s ease forwards;
+  }
+
+  /* ── Cross-reference visual indicator ───────────────────────────────────── */
+
+  .cr-xref-indicator {
+    position: absolute;
+    left: -8px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-left: 3px solid currentColor;
+    border-radius: 2px;
+    opacity: 0.6;
+    pointer-events: none;
+  }
+}

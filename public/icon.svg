@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="#1C1C1E"/>
+  <circle cx="64" cy="64" r="58" fill="none" stroke="#6AAFFF" stroke-width="2" opacity="0.3"/>
+
+  <!-- Top: spread out text lines (the original) -->
+  <rect x="28" y="24" width="72" height="4" rx="2" fill="#8E8E93" opacity="0.5"/>
+  <rect x="28" y="32" width="64" height="4" rx="2" fill="#8E8E93" opacity="0.5"/>
+  <rect x="28" y="40" width="70" height="4" rx="2" fill="#8E8E93" opacity="0.5"/>
+  <rect x="28" y="48" width="58" height="4" rx="2" fill="#8E8E93" opacity="0.4"/>
+
+  <!-- Squeeze/funnel lines converging -->
+  <line x1="28" y1="56" x2="40" y2="68" stroke="#6AAFFF" stroke-width="1.5" opacity="0.4"/>
+  <line x1="100" y1="56" x2="88" y2="68" stroke="#6AAFFF" stroke-width="1.5" opacity="0.4"/>
+
+  <!-- Funnel shape -->
+  <path d="M28,55 L40,70 L88,70 L100,55" fill="none" stroke="#6AAFFF" stroke-width="2" opacity="0.5"/>
+
+  <!-- Bottom: condensed bright lines (the substance) -->
+  <rect x="40" y="76" width="48" height="5" rx="2.5" fill="#6AAFFF"/>
+  <rect x="44" y="85" width="40" height="5" rx="2.5" fill="#6AAFFF" opacity="0.8"/>
+  <rect x="48" y="94" width="32" height="5" rx="2.5" fill="#6AAFFF" opacity="0.6"/>
+
+  <!-- Sparkle dots for "substance" feel -->
+  <circle cx="42" cy="78" r="1.5" fill="#FFD700" opacity="0.8"/>
+  <circle cx="86" cy="87" r="1.5" fill="#FFD700" opacity="0.7"/>
+  <circle cx="52" cy="96" r="1.5" fill="#FFD700" opacity="0.6"/>
+</svg>
