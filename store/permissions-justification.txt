@@ -1,0 +1,19 @@
+PERMISSION JUSTIFICATIONS (for Chrome Web Store review)
+
+storage
+- Stores user settings (API key, provider selection, enabled state, blocked domains) locally in chrome.storage.local. No data is synced.
+
+sidePanel
+- The extension's primary UI is a side panel that shows paragraph summaries, highlights, and cross-references synchronized with the article being read.
+
+tabs
+- Used to query the active tab and send messages between the side panel and the content script running on the page. Required for scroll synchronization and paragraph selection.
+
+activeTab
+- Used to inject the content script and communicate with the active tab when the user opens the side panel.
+
+Host permissions (api.anthropic.com, api.openai.com, generativelanguage.googleapis.com, openrouter.ai)
+- The extension calls LLM APIs directly from the service worker to analyze article content. The user provides their own API key. No intermediary server is used.
+
+Content script (all URLs)
+- Runs on all pages to detect paragraphs, enable click-to-sync with the side panel, and inject key phrase highlights when the user selects a paragraph.

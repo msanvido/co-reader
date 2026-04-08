@@ -91,7 +91,7 @@ export const PROVIDER_CONFIGS: Record<ProviderID, ProviderConfig> = {
   },
   'chrome-nano': {
     id: 'chrome-nano',
-    name: 'Chrome Built-in (Nano)',
+    name: 'Chrome Nano [BETA]',
     requiresKey: false,
     keyPlaceholder: '',
     defaultModel: 'nano',

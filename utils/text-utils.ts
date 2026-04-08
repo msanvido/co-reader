@@ -62,31 +62,92 @@ export function parseJsonResponse<T>(raw: string): T | null {
   // Try direct parse
   try { return JSON.parse(cleaned) as T } catch {}
 
+  // Fix unescaped quotes inside JSON string values, then retry
+  const sanitized = fixUnescapedQuotes(cleaned)
+  try { return JSON.parse(sanitized) as T } catch {}
+
   // Truncated — repair and retry
-  const repaired = repairJson(cleaned)
+  const repaired = repairJson(sanitized)
   try {
     const result = JSON.parse(repaired) as T
-    console.warn('[co-reader] JSON was truncated, repaired successfully')
+    console.warn('[co-reader] JSON repaired successfully')
     return result
   } catch {}
 
-  // Progressive truncation: cut from the end, repair, try again
-  // Step back to the last complete-looking element (end of string or number)
-  for (let i = cleaned.length - 1; i > cleaned.length * 0.3; i--) {
-    const ch = cleaned[i]
-    // Look for natural break points: end of a string value, number, or boolean
+  // Progressive truncation: cut back to find a parseable prefix
+  for (let i = sanitized.length - 1; i > sanitized.length * 0.3; i--) {
+    const ch = sanitized[i]
     if (ch === '"' || ch === '}' || ch === ']' || (ch >= '0' && ch <= '9') || ch === 'e' || ch === 'l') {
-      const slice = cleaned.slice(0, i + 1)
-      const repaired2 = repairJson(slice)
+      const repaired2 = repairJson(sanitized.slice(0, i + 1))
       try {
         const result = JSON.parse(repaired2) as T
-        console.warn(`[co-reader] JSON truncated, recovered at position ${i}/${cleaned.length}`)
+        console.warn(`[co-reader] JSON recovered at position ${i}/${sanitized.length}`)
         return result
       } catch { /* keep trying */ }
     }
   }
 
   return null
+}
+
+/**
+ * Fix unescaped quotes inside JSON string values.
+ * LLMs sometimes produce: "summary": "the "rabbit hole" concept"
+ * which should be:          "summary": "the \"rabbit hole\" concept"
+ *
+ * Strategy: walk char by char, track whether we're inside a JSON string value.
+ * If we hit a quote that's clearly mid-value (not followed by a JSON structural
+ * char like : , } ]), escape it.
+ */
+function fixUnescapedQuotes(json: string): string {
+  const out: string[] = []
+  let i = 0
+  const len = json.length
+
+  while (i < len) {
+    const ch = json[i]
+
+    if (ch === '"') {
+      // Start of a string — find the proper end
+      out.push('"')
+      i++
+      while (i < len) {
+        const c = json[i]
+        if (c === '\\') {
+          // Escaped character — keep as-is
+          out.push(c)
+          i++
+          if (i < len) { out.push(json[i]); i++ }
+          continue
+        }
+        if (c === '"') {
+          // Is this the real end of the string?
+          // Look ahead: skip whitespace, then check for JSON structural char
+          let peek = i + 1
+          while (peek < len && (json[peek] === ' ' || json[peek] === '\n' || json[peek] === '\r' || json[peek] === '\t')) peek++
+          const next = json[peek]
+          if (next === ':' || next === ',' || next === '}' || next === ']' || next === undefined) {
+            // This is the real closing quote
+            out.push('"')
+            i++
+            break
+          } else {
+            // Unescaped quote mid-string — escape it
+            out.push('\\"')
+            i++
+            continue
+          }
+        }
+        out.push(c)
+        i++
+      }
+    } else {
+      out.push(ch)
+      i++
+    }
+  }
+
+  return out.join('')
 }
 
 /**

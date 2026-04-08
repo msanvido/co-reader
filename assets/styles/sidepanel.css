@@ -498,6 +498,75 @@ kbd {
   color: var(--text-muted);
   text-align: center;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.gh-link {
+  color: var(--text-muted);
+  display: inline-flex;
+  transition: color 0.15s;
+}
+.gh-link:hover { color: var(--text); }
+
+/* ── Nano help ─────────────────────────────────────────────────────────────── */
+
+.nano-help {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.nano-help strong { color: var(--text); display: block; margin-bottom: 4px; }
+.nano-help p { margin: 6px 0; }
+.nano-help ol { margin: 6px 0; padding-left: 18px; }
+.nano-help li { margin: 4px 0; }
+.nano-help code { background: var(--bg3); padding: 1px 5px; border-radius: 3px; font-size: 11px; word-break: break-all; }
+
+/* ── Copy URL button ────────────────────────────────────────────────────────── */
+
+.copy-url {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 4px 0;
+  padding: 5px 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--accent);
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.copy-url:hover { background: rgba(106,175,255,0.1); border-color: var(--accent); }
+
+.copy-url--copied { border-color: #44CC44; color: #44CC44; }
+
+.copy-url-text { flex: 1; }
+
+.copy-url-icon { flex-shrink: 0; font-size: 13px; }
+
+.nano-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: #FF9800;
+  color: #000;
+  margin-bottom: 6px;
 }
 
 /* ── Popup specific ──────────────────────────────────────────────────────────── */

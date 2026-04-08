@@ -1,0 +1,1 @@
+Paragraph-level reading companion — one-sentence summaries, key phrase highlights, and cross-references in a side panel. BYOK: works with Claude, GPT, Gemini, or on-device Nano.

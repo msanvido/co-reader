@@ -1,0 +1,33 @@
+co-reader — your paragraph-level reading companion
+
+Stop skimming. Start understanding. co-reader analyzes any article and gives you a synchronized reading guide in a side panel — one-sentence summaries for every paragraph, key phrase highlights, and cross-references between related sections.
+
+HOW IT WORKS
+1. Open any article and click the co-reader icon
+2. Click "Start" to analyze the page
+3. Summaries appear in the side panel as chunks are processed
+4. Click a summary to jump to that paragraph — key phrases light up automatically
+5. Click a paragraph in the article to sync the panel back
+6. Cross-reference links connect related paragraphs
+
+FEATURES
+• One-sentence summaries for every paragraph
+• Key phrase highlighting directly on the article
+• Cross-references between related paragraphs
+• Synchronized scrolling — article and panel stay in sync
+• Chunked processing with live progress bar
+• Works on any article, blog post, or long-form content
+
+BRING YOUR OWN KEY
+co-reader has no backend. Your API key stays in your browser. Choose your LLM:
+• Anthropic (Claude)
+• OpenAI (GPT-4o, GPT-4.1)
+• Google Gemini
+• OpenRouter (access to 100+ models)
+• Chrome Built-in AI / Gemini Nano (free, on-device, beta)
+
+PRIVACY
+Only paragraph text is sent to your chosen LLM provider. No URLs, no personal data, no tracking, no analytics. Your API key is stored locally and never leaves your browser.
+
+OPEN SOURCE
+co-reader is open source: https://github.com/msanvido/co-reader
