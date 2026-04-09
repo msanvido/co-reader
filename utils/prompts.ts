@@ -138,14 +138,16 @@ Return this JSON structure:
 
 // ─── Full Page Analysis (single call) ────────────────────────────────────────
 
-export const FULL_PAGE_SYSTEM = `You analyze documents. For each paragraph return a very short summary and key phrases.
+export const FULL_PAGE_SYSTEM = `You analyze documents. Return section summaries and paragraph summaries.
 
 STRICT RULES:
-- "summary" MUST be under 12 words. Just the core point. No fluff.
+- Each SECTION gets a "sectionSummary" of 2-3 sentences describing the section's content and purpose.
+- Each PARAGRAPH gets a "summary" of under 12 words. Just the core point.
 - "highlights" max 2 per paragraph. Each "text" must be an EXACT substring from the paragraph, 3-10 words.
 - "crossReferences" max 1 per paragraph. Only if strongly related.
 - "explanation" max 3 words.
 - "description" max 5 words.
+- Paragraphs are grouped by section (marked with § in the input).
 
 Return valid JSON only.`
 
@@ -162,15 +164,20 @@ Full document text with paragraph IDs:
 
 ${parasStr}
 
-Return this JSON. Summaries MUST be under 12 words:
+Return this JSON. Group paragraphs by their section (§):
 {
-  "paragraphs": [
+  "sections": [
     {
-      "id": "cr-para-xxxx",
-      "role": "THESIS|EVIDENCE|BACKGROUND|CAVEAT|EXAMPLE|TRANSITION|CONCLUSION|DATA",
-      "summary": "under 12 words",
-      "highlights": [{"text": "exact 3-10 word substring", "category": "KEY_CLAIM|EVIDENCE|DEFINITION|CAVEAT|EXAMPLE", "explanation": "3 words"}],
-      "crossReferences": [{"targetParagraphId": "cr-para-yyyy", "relationship": "SUPPORTS|CONTRADICTS|DEFINES|ELABORATES|PREREQUISITES", "description": "5 words"}]
+      "title": "section name from §",
+      "sectionSummary": "2-3 sentences summarizing this section",
+      "paragraphs": [
+        {
+          "id": "cr-para-xxxx",
+          "summary": "under 12 words",
+          "highlights": [{"text": "exact 3-10 word substring", "category": "KEY_CLAIM|EVIDENCE|DEFINITION|CAVEAT|EXAMPLE", "explanation": "3 words"}],
+          "crossReferences": [{"targetParagraphId": "cr-para-yyyy", "relationship": "SUPPORTS|CONTRADICTS|DEFINES|ELABORATES|PREREQUISITES", "description": "5 words"}]
+        }
+      ]
     }
   ],
   "thesis": "one sentence",

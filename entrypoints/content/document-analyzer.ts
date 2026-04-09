@@ -24,6 +24,7 @@ const CHUNK_SIZE = 8  // paragraphs per LLM call
 
 export const paragraphSummaries = new Map<string, MicroSummaryResponse>()
 export const paragraphDeepDives = new Map<string, DeepDiveResponse>()
+export const sectionSummaryMap = new Map<string, string>()
 
 export type AnalysisState = 'idle' | 'running' | 'done' | 'error'
 let state: AnalysisState = 'idle'
@@ -50,6 +51,7 @@ export async function startAnalysis(): Promise<void> {
   statusMessage = 'Preparing...'
   paragraphSummaries.clear()
   paragraphDeepDives.clear()
+  sectionSummaryMap.clear()
   await runChunkedAnalysis()
 }
 
@@ -131,11 +133,19 @@ async function runChunkedAnalysis(): Promise<void> {
       if (i === 0) {
         graph.thesis = analysis.thesis ?? ''
         graph.keyTerms = analysis.keyTerms ?? []
-        graph.sections = analysis.sections ?? []
       }
 
-      // Process paragraph results
-      for (const para of analysis.paragraphs ?? []) {
+      // Merge section summaries
+      for (const sec of analysis.sections ?? []) {
+        if (sec.title && sec.sectionSummary) {
+          sectionSummaryMap.set(sec.title, sec.sectionSummary)
+        }
+      }
+
+      // Process paragraph results from all sections
+      const allParas = (analysis.sections ?? []).flatMap(s => s.paragraphs ?? [])
+      for (const para of allParas) {
+        if (!para.id || !para.summary) continue
         paragraphSummaries.set(para.id, {
           role: para.role ?? 'UNKNOWN',
           summary: para.summary ?? '',
@@ -150,7 +160,7 @@ async function runChunkedAnalysis(): Promise<void> {
         })
         const meta = paragraphRegistry.get(para.id)
         if (meta) meta.role = para.role
-        graph.paragraphRoles.set(para.id, para.role)
+        graph.paragraphRoles.set(para.id, para.role ?? 'UNKNOWN')
 
         if (Array.isArray(para.crossReferences)) {
           for (const ref of para.crossReferences) {

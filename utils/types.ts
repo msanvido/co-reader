@@ -93,17 +93,24 @@ export interface DocumentAnalysisResponse {
 
 export interface FullPageParagraphAnalysis {
   id: string
-  role: ParagraphRole
+  role?: ParagraphRole
   summary: string
   highlights: HighlightSpan[]
   crossReferences: CrossReference[]
 }
 
-export interface FullPageAnalysisResponse {
-  documentType: string
-  thesis: string
-  sections: SectionInfo[]
+export interface FullPageSectionAnalysis {
+  title: string
+  sectionSummary: string
   paragraphs: FullPageParagraphAnalysis[]
+}
+
+export interface FullPageAnalysisResponse {
+  documentType?: string
+  thesis: string
+  sections: FullPageSectionAnalysis[]
+  /** Legacy flat list — some models may still return this */
+  paragraphs?: FullPageParagraphAnalysis[]
   keyTerms: string[]
 }
 

@@ -4,7 +4,7 @@ import { isSensitiveDomain } from '@/utils/sensitive-detector'
 import { buildParagraphRegistry, paragraphRegistry, paragraphOrder, getParagraphId, getElementById } from './paragraph-detector'
 import {
   startAnalysis, stopAnalysis, getAnalysisStatus,
-  isPipelineComplete, paragraphSummaries, paragraphDeepDives,
+  isPipelineComplete, paragraphSummaries, paragraphDeepDives, sectionSummaryMap,
 } from './document-analyzer'
 import { getCrossRefGraph } from './cross-ref-navigator'
 import { pulseElement, injectHighlights, clearAllHighlights } from './highlight-injector'
@@ -71,28 +71,54 @@ export default defineContentScript({
           return true
         }
 
-        const paragraphs = paragraphOrder.map(el => {
+        // Build section-grouped structure
+        const sectionMap = new Map<number, {
+          title: string
+          summary: string
+          paragraphs: any[]
+        }>()
+
+        for (const el of paragraphOrder) {
           const id = getParagraphId(el) ?? ''
           const summary = paragraphSummaries.get(id)
-          const deepDive = paragraphDeepDives.get(id)
+          if (!summary?.summary) continue
+
           const meta = paragraphRegistry.get(id)
-          return {
+          const deepDive = paragraphDeepDives.get(id)
+          const sectionIdx = meta?.sectionIndex ?? 0
+          const sectionTitle = meta?.sectionTitle ?? ''
+
+          if (!sectionMap.has(sectionIdx)) {
+            sectionMap.set(sectionIdx, { title: sectionTitle, summary: '', paragraphs: [] })
+          }
+
+          sectionMap.get(sectionIdx)!.paragraphs.push({
             id,
-            role: summary?.role ?? meta?.role ?? 'UNKNOWN',
-            summary: summary?.summary ?? '',
+            role: summary.role ?? meta?.role ?? 'UNKNOWN',
+            summary: summary.summary,
             originalText: extractText(el),
             highlights: deepDive?.highlights ?? [],
             crossReferences: deepDive?.crossReferences ?? [],
-          }
-        }).filter(p => p.summary)
+          })
+        }
 
         const graph = getCrossRefGraph()
+
+        // Attach section summaries from the LLM analysis
+        const sections = Array.from(sectionMap.values()).map((sec) => ({
+          ...sec,
+          summary: sectionSummaryMap.get(sec.title) ?? sec.summary,
+        }))
+
+        // Flat list for backward compat (cross-ref lookups)
+        const allParagraphs = sections.flatMap(s => s.paragraphs)
+
         sendResponse({
           data: {
             thesis: graph?.thesis ?? '',
             keyTerms: graph?.keyTerms ?? [],
-            sections: graph?.sections ?? [],
-            paragraphs,
+            sections,
+            allParagraphs,
           }
         })
         return true

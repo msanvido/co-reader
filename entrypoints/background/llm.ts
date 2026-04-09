@@ -54,18 +54,32 @@ export async function fetchFullPageAnalysis(req: FullPageAnalysisRequest): Promi
   const limits = getModelLimits(settings.provider, settings.model)
   const text = await provider.call(FULL_PAGE_SYSTEM, buildFullPagePrompt(req), limits.maxOutputTokens)
   console.log('[co-reader] LLM raw response length:', text.length, 'chars (~', Math.round(text.length / 4), 'tokens)')
-  const parsed = parseJsonResponse<FullPageAnalysisResponse>(text)
+  const parsed = parseJsonResponse<any>(text)
   if (!parsed) {
     console.error('[co-reader] PARSE FAILED. First 500:', text.slice(0, 500))
     throw new Error('Failed to parse response. Raw start: ' + text.slice(0, 150))
   }
-  const returnedParas = parsed.paragraphs?.length ?? 0
-  console.log(`[co-reader] Parsed OK: ${returnedParas} paragraphs returned (of ${req.paragraphs.length} sent)`)
+
+  // Handle both formats: nested sections with paragraphs, or flat paragraphs list
+  let sections: FullPageAnalysisResponse['sections'] = []
+  if (Array.isArray(parsed.sections) && parsed.sections[0]?.paragraphs) {
+    // New nested format: sections contain paragraphs
+    sections = parsed.sections.map((s: any) => ({
+      title: s.title ?? '',
+      sectionSummary: s.sectionSummary ?? '',
+      paragraphs: Array.isArray(s.paragraphs) ? s.paragraphs : [],
+    }))
+  } else if (Array.isArray(parsed.paragraphs)) {
+    // Legacy flat format: wrap all paragraphs in a single section
+    sections = [{ title: '', sectionSummary: '', paragraphs: parsed.paragraphs }]
+  }
+
+  const totalParas = sections.reduce((n, s) => n + s.paragraphs.length, 0)
+  console.log(`[co-reader] Parsed OK: ${sections.length} sections, ${totalParas} paragraphs (of ${req.paragraphs.length} sent)`)
+
   return {
-    documentType: parsed.documentType ?? 'unknown',
     thesis: parsed.thesis ?? '',
-    sections: Array.isArray(parsed.sections) ? parsed.sections : [],
-    paragraphs: Array.isArray(parsed.paragraphs) ? parsed.paragraphs : [],
+    sections,
     keyTerms: Array.isArray(parsed.keyTerms) ? parsed.keyTerms : [],
   }
 }

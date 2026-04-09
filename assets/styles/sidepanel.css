@@ -390,6 +390,32 @@ kbd {
   font-style: italic;
 }
 
+/* ── Guide section ──────────────────────────────────────────────────────────── */
+
+.guide-section { }
+
+.section-header {
+  padding: 10px 16px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.section-summary {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
 /* ── Guide card (one per paragraph) ─────────────────────────────────────────── */
 
 .guide-card {

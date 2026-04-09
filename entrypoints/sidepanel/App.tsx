@@ -18,10 +18,16 @@ interface ParagraphData {
   crossReferences: CrossReference[]
 }
 
+interface SectionData {
+  title: string
+  summary: string
+  paragraphs: ParagraphData[]
+}
+
 interface AnalysisData {
   thesis: string; keyTerms: string[]
-  sections: Array<{ title: string; role: string; summary: string }>
-  paragraphs: ParagraphData[]
+  sections: SectionData[]
+  allParagraphs: ParagraphData[]
 }
 
 type AnalysisState = 'idle' | 'running' | 'done' | 'error'
@@ -32,6 +38,22 @@ interface Status {
 }
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
+
+/** Find a paragraph by ID across all sections */
+function findParagraph(data: AnalysisData | null, id: string): ParagraphData | undefined {
+  if (!data) return undefined
+  // Check allParagraphs first (flat list)
+  if (data.allParagraphs) {
+    const found = data.allParagraphs.find(p => p.id === id)
+    if (found) return found
+  }
+  // Fall back to searching sections
+  for (const sec of data.sections) {
+    const found = sec.paragraphs.find(p => p.id === id)
+    if (found) return found
+  }
+  return undefined
+}
 
 function CopyUrl({ url }: { url: string }) {
   const [copied, setCopied] = useState(false)
@@ -92,11 +114,9 @@ export function App() {
       if (msg?.type === 'PARA_CLICKED' && msg.paragraphId) {
         const paraId = msg.paragraphId
         setActiveParaId(paraId)
-        // Scroll side panel to this paragraph
         const el = paraRefs.current[paraId]
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-        // Send highlights to the page
-        const para = dataRef.current?.paragraphs.find((p: any) => p.id === paraId)
+        const para = findParagraph(dataRef.current, paraId)
         if (para) {
           sendToTab({ type: 'SELECT_PARA', paragraphId: paraId, highlights: para.highlights })
         }
@@ -171,8 +191,7 @@ export function App() {
   }
 
   function selectParagraph(paraId: string) {
-    // Scroll article to this paragraph AND highlight its key phrases
-    const para = data?.paragraphs.find(p => p.id === paraId)
+    const para = findParagraph(data, paraId)
     sendToTab({
       type: 'SELECT_PARA',
       paragraphId: paraId,
@@ -201,44 +220,67 @@ export function App() {
                 <div class="guide-thesis">{data.thesis}</div>
               )}
 
-              {data.paragraphs.map((para, i) => (
-                <div
-                  key={para.id}
-                  ref={(el) => { paraRefs.current[para.id] = el }}
-                  class={`guide-card${activeParaId === para.id ? ' guide-card--active' : ''}`}
-                >
-                  {/* Click → scroll to paragraph + highlight key phrases in article */}
-                  <div class="guide-row" onClick={() => selectParagraph(para.id)}>
-                    <span class="guide-num">{i + 1}</span>
-                    <span class="guide-summary">{para.summary}</span>
-                  </div>
+              {data.sections.map((section, si) => {
+                const hasTitle = section.title && section.title !== document.title
+                let paraCounter = 0
+                // Calculate global paragraph index offset
+                for (let k = 0; k < si; k++) paraCounter += data.sections[k].paragraphs.length
 
-                  {/* Cross-reference links only (highlights are on the page) */}
-                  {para.crossReferences.length > 0 && activeParaId === para.id && (
-                    <div class="guide-tags">
-                      {para.crossReferences.map((ref, j) => {
-                        const idx = data.paragraphs.findIndex(p => p.id === ref.targetParagraphId) + 1
-                        const color = RELATIONSHIP_COLORS[ref.relationship] ?? '#9E9E9E'
-                        const arrow = RELATIONSHIP_ARROWS[ref.relationship] ?? '→'
-                        return (
-                          <button
-                            key={`x${j}`}
-                            class="tag tag--xref"
-                            style={`border-color:${color}`}
-                            title={`${RELATIONSHIP_LABELS[ref.relationship]}: ${ref.description}`}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (idx > 0) selectParagraph(ref.targetParagraphId)
-                            }}
-                          >
-                            {arrow} ¶{idx > 0 ? idx : '?'} {ref.description}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))}
+                return (
+                  <div key={si} class="guide-section">
+                    {/* Section header */}
+                    {hasTitle && (
+                      <div class="section-header">
+                        <div class="section-title">{section.title}</div>
+                        {section.summary && (
+                          <div class="section-summary">{section.summary}</div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Paragraphs in this section */}
+                    {section.paragraphs.map((para, pi) => {
+                      const globalIdx = paraCounter + pi + 1
+                      return (
+                        <div
+                          key={para.id}
+                          ref={(el) => { paraRefs.current[para.id] = el }}
+                          class={`guide-card${activeParaId === para.id ? ' guide-card--active' : ''}`}
+                        >
+                          <div class="guide-row" onClick={() => selectParagraph(para.id)}>
+                            <span class="guide-num">{globalIdx}</span>
+                            <span class="guide-summary">{para.summary}</span>
+                          </div>
+
+                          {para.crossReferences.length > 0 && activeParaId === para.id && (
+                            <div class="guide-tags">
+                              {para.crossReferences.map((ref, j) => {
+                                const idx = data.allParagraphs.findIndex(p => p.id === ref.targetParagraphId) + 1
+                                const color = RELATIONSHIP_COLORS[ref.relationship] ?? '#9E9E9E'
+                                const arrow = RELATIONSHIP_ARROWS[ref.relationship] ?? '→'
+                                return (
+                                  <button
+                                    key={`x${j}`}
+                                    class="tag tag--xref"
+                                    style={`border-color:${color}`}
+                                    title={`${RELATIONSHIP_LABELS[ref.relationship]}: ${ref.description}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (idx > 0) selectParagraph(ref.targetParagraphId)
+                                    }}
+                                  >
+                                    {arrow} ¶{idx > 0 ? idx : '?'} {ref.description}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })}
             </div>
           )}
 
