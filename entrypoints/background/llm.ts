@@ -1,18 +1,18 @@
 /**
- * LLM client — routes to the configured provider.
+ * LLM client — routes to the configured provider and compression technique.
  */
 import {
-  FULL_PAGE_SYSTEM,
   MICRO_SUMMARY_SYSTEM,
-  buildFullPagePrompt,
   buildMicroSummaryPrompt,
 } from '@/utils/prompts'
 import { parseJsonResponse } from '@/utils/text-utils'
+import { COMPRESSION_CONFIGS } from '@/utils/compression-prompts'
 import type {
   MicroSummaryResponse,
   MicroSummaryRequest,
   FullPageAnalysisRequest,
   FullPageAnalysisResponse,
+  CompressionTechnique,
 } from '@/utils/types'
 import { getSettings } from './settings'
 import { createProvider } from './providers'
@@ -47,35 +47,72 @@ export async function fetchMicroSummary(req: MicroSummaryRequest): Promise<Micro
   }
 }
 
-export async function fetchFullPageAnalysis(req: FullPageAnalysisRequest): Promise<FullPageAnalysisResponse> {
+export async function fetchFullPageAnalysis(
+  req: FullPageAnalysisRequest & { compressionTechnique?: CompressionTechnique }
+): Promise<FullPageAnalysisResponse> {
+  const technique = req.compressionTechnique ?? 'abstractive'
+  const config = COMPRESSION_CONFIGS[technique]
+
   const settings = await getSettings()
   const provider = createProvider(settings.provider, settings.apiKey, settings.model)
   const { getModelLimits } = await import('./providers/types')
   const limits = getModelLimits(settings.provider, settings.model)
-  const text = await provider.call(FULL_PAGE_SYSTEM, buildFullPagePrompt(req), limits.maxOutputTokens)
-  console.log('[co-reader] LLM raw response length:', text.length, 'chars (~', Math.round(text.length / 4), 'tokens)')
-  const parsed = parseJsonResponse<any>(text)
-  if (!parsed) {
-    console.error('[co-reader] PARSE FAILED. First 500:', text.slice(0, 500))
-    throw new Error('Failed to parse response. Raw start: ' + text.slice(0, 150))
+
+  const text = await provider.call(config.systemPrompt, config.buildUserPrompt(req), limits.maxOutputTokens)
+  console.log(`[co-reader] LLM response (${technique}):`, text.length, 'chars')
+
+  return parseAnalysisResponse(text, req.paragraphs.length)
+}
+
+/** Pass-2 call for hierarchical and chain-of-density */
+export async function fetchRefinementPass(
+  technique: CompressionTechnique,
+  prevResults: string,
+  req: FullPageAnalysisRequest
+): Promise<FullPageAnalysisResponse> {
+  const config = COMPRESSION_CONFIGS[technique]
+  if (!config.pass2SystemPrompt || !config.buildPass2Prompt) {
+    throw new Error(`Technique ${technique} does not support multi-pass`)
   }
 
-  // Handle both formats: nested sections with paragraphs, or flat paragraphs list
+  const settings = await getSettings()
+  const provider = createProvider(settings.provider, settings.apiKey, settings.model)
+  const { getModelLimits } = await import('./providers/types')
+  const limits = getModelLimits(settings.provider, settings.model)
+
+  const text = await provider.call(
+    config.pass2SystemPrompt,
+    config.buildPass2Prompt(prevResults, req),
+    limits.maxOutputTokens
+  )
+  console.log(`[co-reader] Refinement pass (${technique}):`, text.length, 'chars')
+
+  return parseAnalysisResponse(text, req.paragraphs.length)
+}
+
+function parseAnalysisResponse(text: string, inputCount: number): FullPageAnalysisResponse {
+  const parsed = parseJsonResponse<any>(text)
+  if (!parsed) {
+    console.error('[co-reader] PARSE FAILED. Length:', text.length, 'Last 100:', text.slice(-100))
+    console.error('[co-reader] First 500:', text.slice(0, 500))
+    // If the text is long enough, the model likely ran out of tokens.
+    // Return what we can — an empty result is better than crashing.
+    return { thesis: '', sections: [], keyTerms: [] }
+  }
+
   let sections: FullPageAnalysisResponse['sections'] = []
   if (Array.isArray(parsed.sections) && parsed.sections[0]?.paragraphs) {
-    // New nested format: sections contain paragraphs
     sections = parsed.sections.map((s: any) => ({
       title: s.title ?? '',
       sectionSummary: s.sectionSummary ?? '',
       paragraphs: Array.isArray(s.paragraphs) ? s.paragraphs : [],
     }))
   } else if (Array.isArray(parsed.paragraphs)) {
-    // Legacy flat format: wrap all paragraphs in a single section
     sections = [{ title: '', sectionSummary: '', paragraphs: parsed.paragraphs }]
   }
 
   const totalParas = sections.reduce((n, s) => n + s.paragraphs.length, 0)
-  console.log(`[co-reader] Parsed OK: ${sections.length} sections, ${totalParas} paragraphs (of ${req.paragraphs.length} sent)`)
+  console.log(`[co-reader] Parsed: ${sections.length} sections, ${totalParas} paragraphs (of ${inputCount} sent)`)
 
   return {
     thesis: parsed.thesis ?? '',

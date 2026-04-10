@@ -8,9 +8,11 @@ import type {
   CrossReference,
   Settings,
   ProviderID,
+  CompressionTechnique,
 } from '@/utils/types'
 import { DEFAULT_SETTINGS } from '@/utils/types'
 import { PROVIDER_CONFIGS } from '@/entrypoints/background/providers/types'
+import { COMPRESSION_CONFIGS } from '@/utils/compression-prompts'
 
 interface ParagraphData {
   id: string; role: string; summary: string; originalText: string
@@ -249,7 +251,14 @@ export function App() {
                         >
                           <div class="guide-row" onClick={() => selectParagraph(para.id)}>
                             <span class="guide-num">{globalIdx}</span>
-                            <span class="guide-summary">{para.summary}</span>
+                            <span class="guide-summary">
+                              {para.summary.includes('\n- ') || para.summary.startsWith('- ')
+                                ? <ul class="bullet-summary">{para.summary.split('\n').filter(l => l.trim()).map((line, li) =>
+                                    <li key={li}>{line.replace(/^-\s*/, '')}</li>
+                                  )}</ul>
+                                : para.summary
+                              }
+                            </span>
                           </div>
 
                           {para.crossReferences.length > 0 && activeParaId === para.id && (
@@ -363,15 +372,23 @@ function SettingsPanel() {
   const [keyVisible, setKeyVisible] = useState(false)
   const keyRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { loadAndTest() }, [])
+  useEffect(() => { loadSettings() }, [])
 
-  async function loadAndTest() {
+  async function loadSettings() {
     try {
       const s = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' })
       setSettings(s); setKeyDraft(s.apiKey)
       const config = PROVIDER_CONFIGS[s.provider as ProviderID]
-      if (config.requiresKey && !s.apiKey) { setStatus('error'); setStatusMsg('No API key'); setEditingKey(true); return }
-      setStatus('checking'); setStatusMsg('Verifying...')
+      if (config.requiresKey && !s.apiKey) { setStatus('error'); setStatusMsg('No API key'); setEditingKey(true) }
+      else { setStatus('ok'); setStatusMsg('Ready') }
+    } catch { setStatus('error'); setStatusMsg('Service worker error') }
+  }
+
+  async function testConnection() {
+    const config = PROVIDER_CONFIGS[settings.provider]
+    if (config.requiresKey && !settings.apiKey) { setStatus('error'); setStatusMsg('No API key'); return }
+    setStatus('checking'); setStatusMsg('Testing connection...')
+    try {
       const r = await chrome.runtime.sendMessage({ type: 'TEST_API_KEY' })
       if (r?.ok) { setStatus('ok'); setStatusMsg(`Connected to ${config.name}`) }
       else { setStatus('error'); setStatusMsg(r?.error ?? 'Failed') }
@@ -382,7 +399,7 @@ function SettingsPanel() {
     const u = { ...settings, ...patch }; setSettings(u)
     await chrome.runtime.sendMessage({ type: 'UPDATE_SETTINGS', payload: u })
   }
-  async function saveKey() { await save({ apiKey: keyDraft.trim() }); setEditingKey(false); loadAndTest() }
+  async function saveKey() { await save({ apiKey: keyDraft.trim() }); setEditingKey(false) }
   function changeProvider(id: ProviderID) {
     const c = PROVIDER_CONFIGS[id]
     save({ provider: id, model: c.defaultModel, apiKey: id === settings.provider ? settings.apiKey : '' })
@@ -398,6 +415,9 @@ function SettingsPanel() {
       <div class={`status-bar status-bar--${status === 'ok' ? 'connected' : status}`}>
         <span class="status-dot" style={`background:${dotColor};box-shadow:0 0 6px ${dotColor}`} />
         <span class="status-msg">{statusMsg}</span>
+        <button class="test-btn" onClick={testConnection} disabled={status === 'checking'}>
+          {status === 'checking' ? 'Testing...' : 'Test'}
+        </button>
       </div>
       <section class="popup-section">
         <label class="popup-label">Provider</label>
@@ -408,8 +428,20 @@ function SettingsPanel() {
       <section class="popup-section">
         <label class="popup-label">Model</label>
         <select class="provider-select" value={settings.model} onChange={(e) => save({ model: (e.target as HTMLSelectElement).value })}>
-          {config.models.map(m => <option key={m} value={m}>{m}</option>)}
+          {config.models.map(m => <option key={m} value={m}>{m.endsWith(':free') ? '🆓 ' + m.replace(':free', '') : m}</option>)}
         </select>
+      </section>
+      <section class="popup-section">
+        <label class="popup-label">Compression</label>
+        <select class="provider-select" value={settings.compressionTechnique}
+          onChange={(e) => save({ compressionTechnique: (e.target as HTMLSelectElement).value as CompressionTechnique })}>
+          {Object.values(COMPRESSION_CONFIGS).map(c => (
+            <option key={c.id} value={c.id}>
+              {c.label}{c.costMultiplier > 1 ? ` (${c.costMultiplier}x calls)` : ''}
+            </option>
+          ))}
+        </select>
+        <div class="hint-text">{COMPRESSION_CONFIGS[settings.compressionTechnique]?.description}</div>
       </section>
       {config.requiresKey && (
         <section class="popup-section">

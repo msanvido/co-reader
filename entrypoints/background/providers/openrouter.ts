@@ -8,6 +8,7 @@ export function createOpenRouterProvider(apiKey: string, model: string): LLMProv
     name: 'OpenRouter',
 
     async call(system, userPrompt, maxTokens) {
+      if (!apiKey) throw new Error('No OpenRouter API key. Go to Settings and add one (free at openrouter.ai/keys).')
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         const response = await fetch(API_URL, {
           method: 'POST',
@@ -36,34 +37,32 @@ export function createOpenRouterProvider(apiKey: string, model: string): LLMProv
 
         if (!response.ok) {
           const body = await response.text()
-          try { throw new Error(JSON.parse(body)?.error?.message ?? `API ${response.status}`) }
-          catch (e) { if (e instanceof Error) throw e; throw new Error(`OpenRouter ${response.status}: ${body.slice(0, 200)}`) }
+          let msg = `OpenRouter ${response.status}`
+          try { msg = JSON.parse(body)?.error?.message ?? msg } catch {}
+          throw new Error(msg)
         }
 
         const data = await response.json()
-        return data.choices?.[0]?.message?.content ?? ''
+        const content = data.choices?.[0]?.message?.content ?? ''
+        if (!content) {
+          console.error('[co-reader] OpenRouter empty response:', JSON.stringify(data).slice(0, 500))
+          throw new Error('OpenRouter returned empty response. Model may not support this request.')
+        }
+        return content
       }
       throw new Error('Max retries exceeded')
     },
 
     async test() {
       try {
-        const resp = await fetch(API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: 'openai/gpt-4o-mini',
-            max_tokens: 1,
-            messages: [{ role: 'user', content: 'hi' }],
-          }),
+        // Validate key without making an LLM call — just check auth
+        const resp = await fetch('https://openrouter.ai/api/v1/auth/key', {
+          headers: { 'Authorization': `Bearer ${apiKey}` },
         })
         if (resp.ok) return { ok: true }
         const body = await resp.text()
-        try { return { ok: false, error: JSON.parse(body)?.error?.message ?? `API ${resp.status}` } }
-        catch { return { ok: false, error: `API ${resp.status}` } }
+        try { return { ok: false, error: JSON.parse(body)?.error?.message ?? `Invalid key (${resp.status})` } }
+        catch { return { ok: false, error: `Invalid key (${resp.status})` } }
       } catch (e) {
         return { ok: false, error: String(e) }
       }
@@ -71,4 +70,4 @@ export function createOpenRouterProvider(apiKey: string, model: string): LLMProv
   }
 }
 
-function isRetryable(status: number) { return status === 429 || status >= 500 }
+function isRetryable(status: number) { return status >= 500 && status !== 529 }

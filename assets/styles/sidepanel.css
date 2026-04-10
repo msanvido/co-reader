@@ -510,6 +510,20 @@ kbd {
 .settings-panel .status-bar { display: flex; align-items: center; gap: 8px; }
 .settings-panel .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
+.test-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  margin-left: auto;
+}
+.test-btn:hover { color: var(--text); border-color: var(--accent); }
+.test-btn:disabled { opacity: 0.5; cursor: default; }
+
 /* ── Loading hint ──────────────────────────────────────────────────────────────── */
 
 .loading-hint { color: var(--text-muted); font-size: 13px; margin-top: 12px; }
@@ -582,6 +596,29 @@ kbd {
 .copy-url-text { flex: 1; }
 
 .copy-url-icon { flex-shrink: 0; font-size: 13px; }
+
+/* ── Hint text (below dropdowns) ────────────────────────────────────────────── */
+
+.hint-text {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* ── Bullet summary ────────────────────────────────────────────────────────── */
+
+.bullet-summary {
+  margin: 0;
+  padding-left: 14px;
+  list-style: disc;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.bullet-summary li {
+  margin: 1px 0;
+}
 
 .nano-badge {
   display: inline-block;

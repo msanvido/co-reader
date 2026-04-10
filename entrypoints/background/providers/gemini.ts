@@ -11,6 +11,7 @@ export function createGeminiProvider(apiKey: string, model: string): LLMProvider
     name: 'Gemini',
 
     async call(system, userPrompt, maxTokens) {
+      if (!apiKey) throw new Error('No API key configured. Go to Settings to add one.')
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         const response = await fetch(apiUrl(model, apiKey), {
           method: 'POST',
@@ -88,23 +89,14 @@ export function createGeminiProvider(apiKey: string, model: string): LLMProvider
 
     async test() {
       try {
-        const resp = await fetch(apiUrl(model || 'gemini-2.5-flash', apiKey), {
+        // Use countTokens endpoint — free, no generation, just validates the key
+        const countUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-2.5-flash'}:countTokens?key=${apiKey}`
+        const resp = await fetch(countUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: 'Reply with just the word OK' }] }],
-            generationConfig: {
-              maxOutputTokens: 1024,
-              thinkingConfig: { thinkingBudget: 0 },
-            },
-          }),
+          body: JSON.stringify({ contents: [{ parts: [{ text: 'test' }] }] }),
         })
-        if (resp.ok) {
-          const data = await resp.json()
-          const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-          if (text) return { ok: true }
-          return { ok: false, error: 'Empty response from Gemini' }
-        }
+        if (resp.ok) return { ok: true }
         const body = await resp.text()
         try { return { ok: false, error: JSON.parse(body)?.error?.message ?? `API ${resp.status}` } }
         catch { return { ok: false, error: `API ${resp.status}` } }
@@ -115,4 +107,4 @@ export function createGeminiProvider(apiKey: string, model: string): LLMProvider
   }
 }
 
-function isRetryable(status: number) { return status === 429 || status >= 500 }
+function isRetryable(status: number) { return status >= 500 && status !== 529 }

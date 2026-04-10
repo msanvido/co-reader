@@ -141,7 +141,7 @@ Return this JSON structure:
 export const FULL_PAGE_SYSTEM = `You analyze documents. Return section summaries and paragraph summaries.
 
 STRICT RULES:
-- Each SECTION gets a "sectionSummary" of 2-3 sentences describing the section's content and purpose.
+- Each SECTION gets a "sectionSummary" of 1-2 sentences, max 30 words.
 - Each PARAGRAPH gets a "summary" of under 12 words. Just the core point.
 - "highlights" max 2 per paragraph. Each "text" must be an EXACT substring from the paragraph, 3-10 words.
 - "crossReferences" max 1 per paragraph. Only if strongly related.
@@ -169,7 +169,7 @@ Return this JSON. Group paragraphs by their section (§):
   "sections": [
     {
       "title": "section name from §",
-      "sectionSummary": "2-3 sentences summarizing this section",
+      "sectionSummary": "1-2 sentences, max 30 words",
       "paragraphs": [
         {
           "id": "cr-para-xxxx",

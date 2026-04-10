@@ -1,3 +1,12 @@
+// ─── Compression Techniques ─────────────────────────────────────────────────
+
+export type CompressionTechnique =
+  | 'abstractive'
+  | 'extractive'
+  | 'hierarchical'
+  | 'chain-of-density'
+  | 'bullet-points'
+
 // ─── Paragraph & Document Structure ────────────────────────────────────────
 
 export type ParagraphRole =
@@ -145,6 +154,7 @@ export interface Settings {
   provider: ProviderID
   model: string
   apiKey: string
+  compressionTechnique: CompressionTechnique
   enabled: boolean
   blockedDomains: string[]
   highlightCategories: Record<HighlightCategory, boolean>
@@ -156,6 +166,7 @@ export const DEFAULT_SETTINGS: Settings = {
   provider: 'anthropic',
   model: 'claude-sonnet-4-6',
   apiKey: '',
+  compressionTechnique: 'abstractive',
   enabled: true,
   blockedDomains: [
     'mail.google.com',

@@ -103,14 +103,24 @@ export default defineBackground(() => {
     port.onMessage.addListener(async (msg) => {
       if (msg?.type === 'FULL_PAGE_ANALYSIS') {
         const payload = msg.payload as any
-        console.log('[co-reader SW] Full page analysis via port:', payload.paragraphs?.length, 'paragraphs')
+        console.log('[co-reader SW] Full page analysis via port:', payload.paragraphs?.length, 'paragraphs', 'technique:', payload.compressionTechnique)
         try {
           const { fetchFullPageAnalysis } = await import('./llm')
           const data = await fetchFullPageAnalysis(payload)
-          console.log('[co-reader SW] Analysis complete:', data.paragraphs?.length, 'results')
           port.postMessage({ ok: true, data })
         } catch (err) {
           console.error('[co-reader SW] Analysis error:', err)
+          port.postMessage({ ok: false, error: String(err) })
+        }
+      }
+      if (msg?.type === 'REFINEMENT_PASS') {
+        const p = msg.payload as any
+        try {
+          const { fetchRefinementPass } = await import('./llm')
+          const data = await fetchRefinementPass(p.technique, p.prevResults, p.req)
+          port.postMessage({ ok: true, data })
+        } catch (err) {
+          console.error('[co-reader SW] Refinement error:', err)
           port.postMessage({ ok: false, error: String(err) })
         }
       }

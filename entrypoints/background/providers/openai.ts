@@ -8,6 +8,7 @@ export function createOpenAIProvider(apiKey: string, model: string): LLMProvider
     name: 'OpenAI',
 
     async call(system, userPrompt, maxTokens) {
+      if (!apiKey) throw new Error('No API key configured. Go to Settings to add one.')
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         const response = await fetch(API_URL, {
           method: 'POST',
@@ -69,4 +70,4 @@ export function createOpenAIProvider(apiKey: string, model: string): LLMProvider
   }
 }
 
-function isRetryable(status: number) { return status === 429 || status >= 500 }
+function isRetryable(status: number) { return status >= 500 && status !== 529 }
