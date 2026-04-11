@@ -260,11 +260,11 @@ export function App() {
                           <div class="guide-row" onClick={() => selectParagraph(para.id)}>
                             <span class="guide-num">{globalIdx}</span>
                             <span class="guide-summary">
-                              {para.summary.includes('\n- ') || para.summary.startsWith('- ')
+                              {typeof para.summary === 'string' && (para.summary.includes('\n- ') || para.summary.startsWith('- '))
                                 ? <ul class="bullet-summary">{para.summary.split('\n').filter(l => l.trim()).map((line, li) =>
                                     <li key={li}>{line.replace(/^-\s*/, '')}</li>
                                   )}</ul>
-                                : para.summary
+                                : String(para.summary ?? '')
                               }
                             </span>
                           </div>
