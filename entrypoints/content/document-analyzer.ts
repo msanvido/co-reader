@@ -18,7 +18,9 @@ import {
 import { setCrossRefGraph } from './cross-ref-navigator'
 
 const MAX_CHARS_PER_PARA = 1500
-const CHUNK_SIZE = 6
+const MIN_CHUNK_SIZE = 4
+const MAX_CHUNK_SIZE = 60 // cap to keep output quality high
+const DEFAULT_CHUNK_SIZE = 6 // fallback for local/small models
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -51,17 +53,28 @@ export async function startAnalysis(): Promise<void> {
   paragraphDeepDives.clear()
   sectionSummaryMap.clear()
 
-  // Get technique from settings
+  // Get technique, provider, and model limits from settings
   let technique: CompressionTechnique = 'abstractive'
+  let providerId = 'anthropic'
+  let modelLimits = { contextTokens: 128_000, maxOutputTokens: 8_192 }
   try {
-    const settings = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' })
+    const [settings, limits] = await Promise.all([
+      chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }),
+      chrome.runtime.sendMessage({ type: 'GET_MODEL_LIMITS' }),
+    ])
     if (settings?.compressionTechnique) technique = settings.compressionTechnique
+    if (settings?.provider) providerId = settings.provider
+    if (limits?.contextTokens) modelLimits = limits
   } catch {}
 
   const config = COMPRESSION_CONFIGS[technique]
-  console.log(`[co-reader] Starting analysis with technique: ${technique} (${config.passes} pass${config.passes > 1 ? 'es' : ''})`)
+  const isLocal = providerId === 'chrome-nano' || providerId === 'in-browser'
+  const concurrency = isLocal ? 1 : 6
+  const chunkSize = isLocal ? DEFAULT_CHUNK_SIZE : computeChunkSize(modelLimits)
 
-  await runChunkedAnalysis(technique)
+  console.log(`[co-reader] Starting analysis: ${technique} (${config.passes} pass), chunks of ${chunkSize}, concurrency=${concurrency}`)
+
+  await runChunkedAnalysis(technique, concurrency, chunkSize)
 }
 
 export function stopAnalysis(): void {
@@ -75,9 +88,22 @@ export function stopAnalysis(): void {
   }
 }
 
+// ─── Chunk size calculation ───────────────────────────────────────────────────
+
+/**
+ * Compute how many paragraphs to send per LLM call based on model limits.
+ * ~250 tokens per paragraph input, ~300 tokens per paragraph output, ~1500 tokens for system prompt + JSON schema.
+ */
+function computeChunkSize(limits: { contextTokens: number; maxOutputTokens: number }): number {
+  const inputBudget = limits.contextTokens - limits.maxOutputTokens - 1500
+  const maxByInput = Math.floor(inputBudget / 250)
+  const maxByOutput = Math.floor(limits.maxOutputTokens / 300)
+  return Math.max(MIN_CHUNK_SIZE, Math.min(MAX_CHUNK_SIZE, maxByInput, maxByOutput))
+}
+
 // ─── Main pipeline ────────────────────────────────────────────────────────────
 
-async function runChunkedAnalysis(technique: CompressionTechnique): Promise<void> {
+async function runChunkedAnalysis(technique: CompressionTechnique, concurrency: number, chunkSize: number): Promise<void> {
   let paragraphs = getAllParagraphsForAnalysis()
   if (paragraphs.length < 2) { state = 'error'; statusMessage = 'Too few paragraphs'; return }
 
@@ -91,7 +117,7 @@ async function runChunkedAnalysis(technique: CompressionTechnique): Promise<void
   const title = document.title || window.location.hostname
 
   const chunks: typeof paragraphs[] = []
-  for (let i = 0; i < paragraphs.length; i += CHUNK_SIZE) chunks.push(paragraphs.slice(i, i + CHUNK_SIZE))
+  for (let i = 0; i < paragraphs.length; i += chunkSize) chunks.push(paragraphs.slice(i, i + chunkSize))
 
   const graph: CrossReferenceGraph = {
     url: window.location.href, thesis: '', paragraphRoles: new Map(),
@@ -99,43 +125,45 @@ async function runChunkedAnalysis(technique: CompressionTechnique): Promise<void
   }
 
   const config = COMPRESSION_CONFIGS[technique]
-  let processed = 0
-
-  // ── Pass 1: Process chunks ──────────────────────────────────────────────
-
   const passLabel = config.passes > 1 ? 'Pass 1: ' : ''
 
-  for (let i = 0; i < chunks.length; i++) {
-    if (aborted) return
-    const chunk = chunks[i]
+  // ── Pass 1: Process chunks in parallel ─────────────────────────────────
 
-    if (technique === 'chain-of-density') {
-      statusMessage = `${passLabel}Densifying ${processed}/${total} — round 1/3`
+  function updateStatus() {
+    const done = paragraphSummaries.size
+    statusMessage = `${passLabel}Analyzing ${done}/${total} paragraphs...`
+    chrome.runtime.sendMessage({ type: 'ANALYSIS_PROGRESS' }).catch(() => {})
+  }
+
+  const t0 = Date.now()
+
+  if (technique === 'chain-of-density') {
+    await pMap(chunks, async (chunk, i) => {
+      if (aborted) return
+      console.log(`[co-reader] Chunk ${i + 1}/${chunks.length} START +${Date.now() - t0}ms`)
       const iter1 = await callAnalysis(chunk, title, docType, technique)
-      if (!iter1) { processed += chunk.length; continue }
+      if (!iter1 || aborted) return
 
-      if (aborted) return
-      statusMessage = `${passLabel}Densifying ${processed}/${total} — round 2/3`
       const iter2 = await callRefinement(technique, JSON.stringify(iter1), chunk, title, docType)
-
       if (aborted) return
-      statusMessage = `${passLabel}Densifying ${processed}/${total} — round 3/3`
-      const iter3 = await callRefinement(technique, JSON.stringify(iter2 ?? iter1), chunk, title, docType)
 
-      // Use densified summaries from latest iteration, but preserve
-      // highlights/crossRefs from iter1 if later iterations dropped them
+      const iter3 = await callRefinement(technique, JSON.stringify(iter2 ?? iter1), chunk, title, docType)
       const final = iter3 ?? iter2 ?? iter1
       preserveHighlightsFromFirstPass(final, iter1)
       mergeResults(final, graph, i === 0)
-    } else {
-      statusMessage = `${passLabel}Analyzing ${processed}/${total} paragraphs...`
+      updateStatus()
+      console.log(`[co-reader] Chunk ${i + 1}/${chunks.length} DONE +${Date.now() - t0}ms (3 rounds)`)
+    }, concurrency)
+  } else {
+    await pMap(chunks, async (chunk, i) => {
+      if (aborted) return
+      console.log(`[co-reader] Chunk ${i + 1}/${chunks.length} START +${Date.now() - t0}ms`)
+      updateStatus()
       const result = await callAnalysis(chunk, title, docType, technique)
       if (result) mergeResults(result, graph, i === 0)
-    }
-
-    processed += chunk.length
-    console.log(`[co-reader] ${passLabel}Chunk ${i + 1}/${chunks.length} done — ${paragraphSummaries.size} summaries`)
-    chrome.runtime.sendMessage({ type: 'ANALYSIS_PROGRESS' }).catch(() => {})
+      updateStatus()
+      console.log(`[co-reader] Chunk ${i + 1}/${chunks.length} DONE +${Date.now() - t0}ms — ${paragraphSummaries.size} summaries`)
+    }, concurrency)
   }
 
   // ── Pass 2: Hierarchical refinement ─────────────────────────────────────
@@ -152,12 +180,10 @@ async function runChunkedAnalysis(technique: CompressionTechnique): Promise<void
 
     const refined = await callRefinement(technique, JSON.stringify(allResults), paragraphs, document.title, docType)
     if (refined) {
-      // Merge refined thesis and section summaries
       if (refined.thesis) graph.thesis = refined.thesis
       for (const sec of refined.sections ?? []) {
         if (sec.title && sec.sectionSummary) sectionSummaryMap.set(sec.title, sec.sectionSummary)
       }
-      // Merge any new cross-references
       for (const sec of refined.sections ?? []) {
         for (const para of sec.paragraphs ?? []) {
           if (Array.isArray(para.crossReferences)) {
@@ -180,6 +206,23 @@ async function runChunkedAnalysis(technique: CompressionTechnique): Promise<void
   state = 'done'
   statusMessage = `${paragraphSummaries.size} summaries, ${hlCount} highlights, ${graph.edges.length} links`
   console.log('[co-reader] Pipeline complete:', statusMessage)
+}
+
+// ─── Concurrency-limited parallel map ────────────────────────────────────────
+
+async function pMap<T>(
+  items: T[],
+  fn: (item: T, index: number) => Promise<void>,
+  concurrency: number,
+): Promise<void> {
+  let nextIndex = 0
+  async function worker() {
+    while (nextIndex < items.length) {
+      const i = nextIndex++
+      await fn(items[i], i)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()))
 }
 
 // ─── LLM call helpers ─────────────────────────────────────────────────────────

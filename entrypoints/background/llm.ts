@@ -18,12 +18,31 @@ import { getSettings } from './settings'
 import { createProvider } from './providers'
 import type { LLMProvider } from './providers'
 
-async function getProvider(): Promise<LLMProvider> {
+// ── Cached provider (avoids re-reading settings on every parallel chunk) ────
+
+let _cachedProvider: LLMProvider | null = null
+let _cachedLimits: { contextTokens: number; maxOutputTokens: number } | null = null
+let _cacheExpiry = 0
+
+async function getCachedProviderAndLimits() {
+  const now = Date.now()
+  if (_cachedProvider && _cachedLimits && now < _cacheExpiry) {
+    return { provider: _cachedProvider, limits: _cachedLimits }
+  }
   const settings = await getSettings()
   if (settings.provider !== 'chrome-nano' && settings.provider !== 'in-browser' && !settings.apiKey) {
     throw new Error('No API key configured. Open Settings to add one.')
   }
-  return createProvider(settings.provider, settings.apiKey, settings.model)
+  const { getModelLimits } = await import('./providers/types')
+  _cachedProvider = createProvider(settings.provider, settings.apiKey, settings.model)
+  _cachedLimits = getModelLimits(settings.provider, settings.model)
+  _cacheExpiry = now + 30_000 // 30s TTL — covers a full analysis batch
+  return { provider: _cachedProvider, limits: _cachedLimits }
+}
+
+async function getProvider(): Promise<LLMProvider> {
+  const { provider } = await getCachedProviderAndLimits()
+  return provider
 }
 
 export async function testProvider(): Promise<{ ok: boolean; error?: string }> {
@@ -53,11 +72,7 @@ export async function fetchFullPageAnalysis(
   const technique = req.compressionTechnique ?? 'abstractive'
   const config = COMPRESSION_CONFIGS[technique]
 
-  const settings = await getSettings()
-  const provider = createProvider(settings.provider, settings.apiKey, settings.model)
-  const { getModelLimits } = await import('./providers/types')
-  const limits = getModelLimits(settings.provider, settings.model)
-
+  const { provider, limits } = await getCachedProviderAndLimits()
   const text = await provider.call(config.systemPrompt, config.buildUserPrompt(req), limits.maxOutputTokens)
   console.log(`[co-reader] LLM response (${technique}):`, text.length, 'chars')
 
@@ -75,11 +90,7 @@ export async function fetchRefinementPass(
     throw new Error(`Technique ${technique} does not support multi-pass`)
   }
 
-  const settings = await getSettings()
-  const provider = createProvider(settings.provider, settings.apiKey, settings.model)
-  const { getModelLimits } = await import('./providers/types')
-  const limits = getModelLimits(settings.provider, settings.model)
-
+  const { provider, limits } = await getCachedProviderAndLimits()
   const text = await provider.call(
     config.pass2SystemPrompt,
     config.buildPass2Prompt(prevResults, req),
