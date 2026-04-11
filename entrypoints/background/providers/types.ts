@@ -136,12 +136,12 @@ export const PROVIDER_CONFIGS: Record<ProviderID, ProviderConfig> = {
   },
   'chrome-nano': {
     id: 'chrome-nano',
-    name: 'Chrome Nano [BETA]',
+    name: 'Chrome Nano (on-device)',
     requiresKey: false,
     keyPlaceholder: '',
     defaultModel: 'nano',
     models: ['nano'],
-    helpUrl: 'chrome://flags/#prompt-api-for-gemini-nano',
+    helpUrl: 'https://developer.chrome.com/docs/ai/built-in',
     modelLimits: {
       'nano': { contextTokens: 4_096, maxOutputTokens: 2_048 },
     },

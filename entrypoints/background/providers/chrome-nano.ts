@@ -3,35 +3,48 @@ import type { LLMProvider } from './types'
 /**
  * Chrome's built-in Gemini Nano via the Prompt API.
  * No API key needed. Runs entirely on-device.
- * Requires Chrome 131+ with chrome://flags/#prompt-api-for-gemini-nano enabled.
+ *
+ * New API (Chrome 138+): `LanguageModel` is a global constructor.
+ * Old API (Chrome 131–137): `self.ai.languageModel`.
+ *
+ * @see https://github.com/GoogleChromeLabs/web-ai-demos/tree/main/prompt-api
  */
 export function createChromeNanoProvider(): LLMProvider {
   return {
     name: 'Chrome Nano',
 
     async call(system, userPrompt, _maxTokens) {
-      const ai = getAI()
-      if (!ai) throw new Error('Chrome AI not available. Enable at chrome://flags/#prompt-api-for-gemini-nano')
+      const api = getLanguageModelAPI()
+      if (!api) throw new Error(UNAVAILABLE_MSG)
 
-      const session = await ai.languageModel.create({
-        systemPrompt: system,
+      const session = await api.create({
+        initialPrompts: [
+          { role: 'system', content: system },
+        ],
       })
 
-      const result = await session.prompt(userPrompt)
-      session.destroy()
-      return result
+      try {
+        const result = await session.prompt(userPrompt)
+        return result
+      } finally {
+        session.destroy()
+      }
     },
 
     async test() {
       try {
-        const ai = getAI()
-        if (!ai) return { ok: false, error: 'Chrome AI not available. Enable at chrome://flags/#prompt-api-for-gemini-nano' }
+        const api = getLanguageModelAPI()
+        if (!api) return { ok: false, error: UNAVAILABLE_MSG }
 
-        const caps = await ai.languageModel.capabilities()
-        if (caps.available === 'no') {
-          return { ok: false, error: 'Gemini Nano model not downloaded. Visit chrome://flags/#prompt-api-for-gemini-nano' }
+        // New API: LanguageModel.availability()  Old API: ai.languageModel.capabilities()
+        const status = typeof api.availability === 'function'
+          ? await api.availability()
+          : (await api.capabilities?.())?.available
+
+        if (status === 'no' || status === 'unavailable') {
+          return { ok: false, error: 'Gemini Nano model not available. Visit chrome://flags/#prompt-api-for-gemini-nano' }
         }
-        if (caps.available === 'after-download') {
+        if (status === 'after-download' || status === 'downloadable') {
           return { ok: false, error: 'Gemini Nano is downloading. Try again in a few minutes.' }
         }
         return { ok: true }
@@ -42,8 +55,20 @@ export function createChromeNanoProvider(): LLMProvider {
   }
 }
 
-// Chrome's AI API can be on `self.ai` or `globalThis.ai`
-function getAI(): any {
-  if (typeof self !== 'undefined' && (self as any).ai?.languageModel) return (self as any).ai
+const UNAVAILABLE_MSG = 'Chrome AI not available. Enable at chrome://flags/#prompt-api-for-gemini-nano'
+
+/**
+ * Returns the LanguageModel API handle, preferring the new global constructor
+ * (Chrome 138+) and falling back to the legacy self.ai.languageModel namespace.
+ */
+function getLanguageModelAPI(): any {
+  // New API: LanguageModel is a global constructor
+  if (typeof self !== 'undefined' && (self as any).LanguageModel) {
+    return (self as any).LanguageModel
+  }
+  // Legacy API: self.ai.languageModel
+  if (typeof self !== 'undefined' && (self as any).ai?.languageModel) {
+    return (self as any).ai.languageModel
+  }
   return null
 }
