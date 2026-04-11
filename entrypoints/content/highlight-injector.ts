@@ -1,17 +1,9 @@
 import { HIGHLIGHT_CLASS, MARGIN_DOT_CLASS, PARA_ATTR } from '@/utils/constants'
 import type { HighlightSpan, HighlightCategory } from '@/utils/types'
 
-// ─── Track injected nodes for rollback ───────────────────────────────────────
+// ─── Track which elements have highlights ───────────────────────────────────
 
-interface InjectedMark {
-  mark: HTMLElement
-  originalText: string
-  before: Text
-  after: Text
-  parent: Node
-}
-
-const injectedMarks = new Map<Element, InjectedMark[]>()
+const highlightedElements = new Set<Element>()
 
 // ─── Inject highlights into a paragraph element ──────────────────────────────
 
@@ -19,16 +11,14 @@ export function injectHighlights(element: Element, highlights: HighlightSpan[]):
   // Remove existing highlights on this element first
   clearHighlights(element)
 
-  const marks: InjectedMark[] = []
-
+  let injected = 0
   for (const highlight of highlights) {
     if (!highlight.text || highlight.text.trim().length === 0) continue
-    const mark = injectSingleHighlight(element, highlight.text, highlight.category, highlight.explanation)
-    if (mark) marks.push(mark)
+    if (injectSingleHighlight(element, highlight.text, highlight.category, highlight.explanation)) injected++
   }
 
-  if (marks.length > 0) {
-    injectedMarks.set(element, marks)
+  if (injected > 0) {
+    highlightedElements.add(element)
     addMarginDot(element, highlights[0]?.category ?? 'KEY_CLAIM')
   }
 }
@@ -42,7 +32,7 @@ function injectSingleHighlight(
   text: string,
   category: HighlightCategory,
   explanation: string
-): InjectedMark | null {
+): boolean {
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
 
   let node = walker.nextNode() as Text | null
@@ -59,40 +49,35 @@ function injectSingleHighlight(
       mark.dataset.crExplanation = explanation
       mark.textContent = text
 
-      const beforeNode = document.createTextNode(beforeText)
-      const afterNode = document.createTextNode(afterText)
-
       const parent = node.parentNode!
-      parent.insertBefore(beforeNode, node)
+      parent.insertBefore(document.createTextNode(beforeText), node)
       parent.insertBefore(mark, node)
-      parent.insertBefore(afterNode, node)
+      parent.insertBefore(document.createTextNode(afterText), node)
       parent.removeChild(node)
 
-      return { mark, originalText: text, before: beforeNode, after: afterNode, parent }
+      return true
     }
     node = walker.nextNode() as Text | null
   }
-  return null
+  return false
 }
 
 // ─── Clear highlights ─────────────────────────────────────────────────────────
 
 export function clearHighlights(element: Element): void {
-  const marks = injectedMarks.get(element)
-  if (!marks) return
+  if (!highlightedElements.has(element)) return
 
-  // Merge split text nodes back and remove mark elements
-  for (const { mark, before, after, parent } of marks) {
-    const merged = document.createTextNode(
-      (before.textContent ?? '') + (mark.textContent ?? '') + (after.textContent ?? '')
-    )
-    parent.insertBefore(merged, before)
-    if (parent.contains(before)) parent.removeChild(before)
-    if (parent.contains(mark)) parent.removeChild(mark)
-    if (parent.contains(after)) parent.removeChild(after)
+  // Unwrap every <mark> back to plain text
+  const marks = element.querySelectorAll(`.${HIGHLIGHT_CLASS}`)
+  for (const mark of marks) {
+    const text = document.createTextNode(mark.textContent ?? '')
+    mark.parentNode?.replaceChild(text, mark)
   }
 
-  injectedMarks.delete(element)
+  // Merge adjacent text nodes back together (restores original DOM)
+  element.normalize()
+
+  highlightedElements.delete(element)
 
   // Remove margin dot
   const dot = document.querySelector(
@@ -102,7 +87,7 @@ export function clearHighlights(element: Element): void {
 }
 
 export function clearAllHighlights(): void {
-  for (const element of injectedMarks.keys()) {
+  for (const element of [...highlightedElements]) {
     clearHighlights(element)
   }
 }
