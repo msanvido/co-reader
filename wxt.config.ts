@@ -5,13 +5,18 @@ export default defineConfig({
   manifest: {
     name: 'co-reader',
     description: 'Paragraph-level reading companion with summaries, highlights, and cross-references',
-    permissions: ['storage', 'sidePanel', 'tabs', 'activeTab'],
+    permissions: ['storage', 'sidePanel', 'tabs', 'activeTab', 'offscreen'],
     host_permissions: [
       'https://api.anthropic.com/*',
       'https://api.openai.com/*',
       'https://generativelanguage.googleapis.com/*',
       'https://openrouter.ai/*',
+      'https://huggingface.co/*',
+      'https://cdn.jsdelivr.net/*',
     ],
+    content_security_policy: {
+      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
+    },
     minimum_chrome_version: '116',
     icons: {
       16: 'icon16.png',

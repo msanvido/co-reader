@@ -136,7 +136,7 @@ export const PROVIDER_CONFIGS: Record<ProviderID, ProviderConfig> = {
   },
   'chrome-nano': {
     id: 'chrome-nano',
-    name: 'Chrome Nano (on-device)',
+    name: 'In-Browser Chrome Native',
     requiresKey: false,
     keyPlaceholder: '',
     defaultModel: 'nano',
@@ -144,6 +144,19 @@ export const PROVIDER_CONFIGS: Record<ProviderID, ProviderConfig> = {
     helpUrl: 'https://developer.chrome.com/docs/ai/built-in',
     modelLimits: {
       'nano': { contextTokens: 4_096, maxOutputTokens: 2_048 },
+    },
+  },
+  'in-browser': {
+    id: 'in-browser',
+    name: 'In-Browser (Gemma)',
+    requiresKey: false,
+    keyPlaceholder: '',
+    defaultModel: 'gemma-4-e2b',
+    models: ['gemma-4-e2b', 'gemma-4-e4b'],
+    helpUrl: 'https://huggingface.co/onnx-community/gemma-4-E2B-it-ONNX',
+    modelLimits: {
+      'gemma-4-e2b': { contextTokens: 8_192, maxOutputTokens: 2_048 },
+      'gemma-4-e4b': { contextTokens: 8_192, maxOutputTokens: 2_048 },
     },
   },
 }

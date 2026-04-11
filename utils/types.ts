@@ -148,7 +148,7 @@ export interface CachedDocumentAnalysis {
 
 // ─── Settings ───────────────────────────────────────────────────────────────
 
-export type ProviderID = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'chrome-nano'
+export type ProviderID = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'chrome-nano' | 'in-browser'
 
 export interface Settings {
   provider: ProviderID

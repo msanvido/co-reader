@@ -65,8 +65,15 @@ export function PopupApp() {
     save({ provider: id, model: config.defaultModel, apiKey: id === settings.provider ? settings.apiKey : '' })
     setKeyDraft('')
     setEditingKey(config.requiresKey)
-    setStatus('no-key')
-    setStatusMsg(`Switched to ${config.name}`)
+    if (config.requiresKey) {
+      setStatus('no-key')
+      setStatusMsg(`Switched to ${config.name}`)
+    } else {
+      // Keyless providers — run connection test immediately
+      setStatus('checking')
+      setStatusMsg(`Checking ${config.name}...`)
+      setTimeout(loadAndTest, 100)
+    }
   }
 
   function changeModel(model: string) {

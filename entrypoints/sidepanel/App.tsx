@@ -92,6 +92,7 @@ export function App() {
   const [activeParaId, _setActiveParaId] = useState<string | null>(null)
   const activeParaIdRef = useRef<string | null>(null)
   const [backendInfo, setBackendInfo] = useState('')
+  const [downloadMsg, setDownloadMsg] = useState<string | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const paraRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const dataRef = useRef<AnalysisData | null>(null)
@@ -111,6 +112,10 @@ export function App() {
       if (msg?.type === 'ANALYSIS_DONE' || msg?.type === 'ANALYSIS_PROGRESS') {
         pollStatus()
         fetchData()
+      }
+      // Model download progress from offscreen document
+      if (msg?.type === 'MODEL_DOWNLOAD_PROGRESS') {
+        setDownloadMsg(msg.percent === -1 ? null : msg.message)
       }
       // User clicked a paragraph on the page → sync panel + highlight
       if (msg?.type === 'PARA_CLICKED' && msg.paragraphId) {
@@ -214,6 +219,9 @@ export function App() {
 
       {showSettings ? <SettingsPanel /> : (
         <>
+          {downloadMsg && (
+            <div class="download-banner">{downloadMsg}</div>
+          )}
           <ControlBar status={status} onStart={handleStart} onStop={handleStop} />
 
           {data && (
@@ -472,10 +480,23 @@ function SettingsPanel() {
         </label>
       </section>
 
+      {settings.provider === 'in-browser' && (
+        <div class="nano-help">
+          <strong>In-Browser Gemma (transformers.js)</strong>
+          <p>Runs entirely on-device via WebGPU — no API key, no data sent to any server.</p>
+          <p>The model is <strong>downloaded once</strong> from HuggingFace on first use (~500 MB for E2B, ~1.5 GB for E4B) and cached by your browser. Subsequent runs load from cache instantly.</p>
+          <p><strong>Requirements:</strong></p>
+          <ul>
+            <li>Chrome 113+ or Edge 113+ with WebGPU</li>
+            <li>GPU with f16 shader support</li>
+          </ul>
+          <p>Note: Inference is slower than cloud APIs (10-30s per chunk). Best for moderate-length articles.</p>
+        </div>
+      )}
+
       {settings.provider === 'chrome-nano' && (
         <div class="nano-help">
-          <div class="nano-badge">BETA</div>
-          <strong>Chrome Built-in AI (Gemini Nano)</strong>
+          <strong>In-Browser Chrome Native (Gemini Nano)</strong>
           <p>Runs entirely on-device — no API key, no data sent to any server. Requires Chrome 131+ and manual setup:</p>
           <ol>
             <li>

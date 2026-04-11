@@ -3,6 +3,7 @@ output/
 .output/
 .wxt/
 *.zip
+public/ort/
 .DS_Store
 .env
 .claude/

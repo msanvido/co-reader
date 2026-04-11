@@ -43,7 +43,7 @@ This builds, watches for changes, and launches Chrome with the extension pre-loa
 
 Click the co-reader icon in the toolbar to open the side panel, then click **⚙** to open settings:
 
-- **Provider** — Anthropic, OpenAI, Google Gemini, OpenRouter, or Chrome Nano (free, on-device)
+- **Provider** — Anthropic, OpenAI, Google Gemini, OpenRouter, In-Browser Chrome Native, or In-Browser Gemma (all free, on-device)
 - **Model** — pick from the provider's available models
 - **API Key** — paste your key (stored locally in `chrome.storage.local`, never sent to any server except the LLM provider you chose)
 
@@ -55,25 +55,48 @@ Click the co-reader icon in the toolbar to open the side panel, then click **⚙
 | OpenAI | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
 | Google Gemini | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
 | OpenRouter | [openrouter.ai/keys](https://openrouter.ai/keys) |
-| Chrome Nano | No key needed — see setup below |
+| In-Browser Chrome Native | No key needed — see [Gemini Nano setup](#run-entirely-in-your-browser-with-gemini-nano) |
+| In-Browser (Gemma) | No key needed — see [Gemma setup](#run-gemma-4-locally-with-transformersjs) |
 
-### Chrome Built-in AI / Gemini Nano (BETA)
+### Run entirely in your browser with Gemini Nano
 
-Chrome ships an on-device LLM (Gemini Nano) that runs entirely locally — no API key, no data sent anywhere. It requires Chrome 131+ and manual setup:
+co-reader can run **100% locally** using Chrome's built-in Gemini Nano model — no API key, no cloud calls, no data leaves your machine. Select "In-Browser Chrome Native" as the provider and you're set.
 
-1. Open `chrome://flags/#optimization-guide-on-device-model` and set to **Enabled BypassPerfRequirement**
-2. Open `chrome://flags/#prompt-api-for-gemini-nano` and set to **Enabled**
-3. Relaunch Chrome
-4. Open `chrome://components`, find **Optimization Guide On Device Model**, click "Check for update" — this downloads ~1.7GB
-5. Wait for the download to finish, then restart Chrome
+**Setup** (one-time):
 
-In co-reader settings, select "Chrome Nano [BETA]" as the provider. No API key field will appear.
+1. Use Chrome 131 or newer (Chrome 138+ recommended for the latest Prompt API)
+2. Open `chrome://flags/#optimization-guide-on-device-model` and set to **Enabled BypassPerfRequirement**
+3. Open `chrome://flags/#prompt-api-for-gemini-nano` and set to **Enabled**
+4. Relaunch Chrome
+5. Open `chrome://components`, find **Optimization Guide On Device Model**, click "Check for update" — this downloads ~1.7 GB
+6. Wait for the download to finish, then restart Chrome
+
+See the [Chrome Built-in AI docs](https://developer.chrome.com/docs/ai/built-in) for more details.
 
 **Caveats:**
-- Output quality is significantly lower than cloud models — summaries may be vague or miss key points
+- Output quality is lower than cloud models — summaries may be vague or miss key points
 - Small context window (4K tokens) limits analysis to ~5 paragraphs per chunk
 - Some articles may be too complex for Nano to produce valid JSON
-- This is experimental and may not work on all systems
+
+### Run Gemma 4 locally with transformers.js
+
+co-reader can also run **Gemma 4** entirely in your browser using [transformers.js](https://huggingface.co/docs/transformers.js) and WebGPU. The model is downloaded once from HuggingFace (~500 MB for E2B, ~1.5 GB for E4B) and cached by the browser. No API key needed.
+
+**Requirements:**
+- Chrome 113+ (or Edge 113+) with WebGPU enabled
+- A GPU that supports f16 shaders
+
+Select "In-Browser (Gemma)" as the provider and pick a model:
+- **gemma-4-e2b** — ~500 MB download, good balance of size and quality
+- **gemma-4-e4b** — ~1.5 GB download, better quality
+
+The first analysis will be slow while the model downloads. Subsequent runs use the cached model.
+
+**Caveats:**
+- First load downloads the model — this can take a few minutes on slower connections
+- Context window is limited (8K tokens) compared to cloud models
+- Inference is slower than cloud APIs — expect 10-30 seconds per chunk depending on GPU
+- WebGPU must be available and your GPU must support f16 shaders
 
 ## Project structure
 

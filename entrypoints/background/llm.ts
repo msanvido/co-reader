@@ -20,7 +20,7 @@ import type { LLMProvider } from './providers'
 
 async function getProvider(): Promise<LLMProvider> {
   const settings = await getSettings()
-  if (settings.provider !== 'chrome-nano' && !settings.apiKey) {
+  if (settings.provider !== 'chrome-nano' && settings.provider !== 'in-browser' && !settings.apiKey) {
     throw new Error('No API key configured. Open Settings to add one.')
   }
   return createProvider(settings.provider, settings.apiKey, settings.model)
