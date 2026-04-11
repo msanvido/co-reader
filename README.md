@@ -2,7 +2,28 @@
 
 A Chrome extension that analyzes articles paragraph by paragraph. Click "Start" and get a synchronized reading guide in the side panel — short summaries, key phrase highlights, and cross-references between related paragraphs.
 
-No backend. Your API key stays in your browser. Supports Anthropic, OpenAI, Gemini, OpenRouter, and Chrome's built-in Nano model.
+Optionally with no backend. Your API key stays in your browser. For performance reasons, it supports Anthropic, OpenAI, Gemini, OpenRouter, and Chrome's built-in Nano model.
+
+## Install
+
+### From a release (easiest)
+
+1. Download the latest `.zip` from [Releases](https://github.com/msanvido/co-reader/releases)
+2. Unzip the file
+3. Open `chrome://extensions` in Chrome
+4. Enable **Developer mode** (top-right toggle)
+5. Click **Load unpacked** and select the unzipped folder
+
+### From source
+
+```bash
+git clone https://github.com/msanvido/co-reader.git
+cd co-reader
+npm install
+npm run build
+```
+
+Then load the `output/chrome-mv3/` folder as an unpacked extension (same steps 3-5 above).
 
 ## How it works
 
@@ -12,24 +33,6 @@ No backend. Your API key stays in your browser. Supports Anthropic, OpenAI, Gemi
 4. Click a summary to scroll to that paragraph and highlight its key phrases
 5. Click a paragraph in the article to sync the panel the other way
 6. Cross-reference links let you jump between related paragraphs
-
-## Build
-
-```bash
-git clone https://github.com/msanvido/co-reader.git
-cd co-reader
-npm install
-npm run build
-```
-
-The built extension is in `output/chrome-mv3/`.
-
-## Load in Chrome
-
-1. Go to `chrome://extensions`
-2. Enable **Developer mode** (top-right toggle)
-3. Click **Load unpacked**
-4. Select the `output/chrome-mv3` folder
 
 ## Dev mode (auto-reload)
 
@@ -58,9 +61,13 @@ Click the co-reader icon in the toolbar to open the side panel, then click **⚙
 | In-Browser Chrome Native | No key needed — see [Gemini Nano setup](#run-entirely-in-your-browser-with-gemini-nano) |
 | In-Browser (Gemma) | No key needed — see [Gemma setup](#run-gemma-4-locally-with-transformersjs) |
 
-### Run entirely in your browser with Gemini Nano
+### Run entirely in your browser
 
-co-reader can run **100% locally** using Chrome's built-in Gemini Nano model — no API key, no cloud calls, no data leaves your machine. Select "In-Browser Chrome Native" as the provider and you're set.
+co-reader can run **100% locally**
+
+#### Chrome Gemini Nano
+
+co-reader can use Chrome's built-in Gemini Nano model — no API key, no cloud calls, no data leaves your machine. Select "In-Browser Chrome Native" as the provider and you're set.
 
 **Setup** (one-time):
 
@@ -90,10 +97,8 @@ Select "In-Browser (Gemma)" as the provider and pick a model:
 - **gemma-4-e2b** — ~500 MB download, good balance of size and quality
 - **gemma-4-e4b** — ~1.5 GB download, better quality
 
-The first analysis will be slow while the model downloads. Subsequent runs use the cached model.
-
 **Caveats:**
-- First load downloads the model — this can take a few minutes on slower connections
+- First load downloads the model — this can take a few minutes on slower connections, subsequent runs use the cached model.
 - Context window is limited (8K tokens) compared to cloud models
 - Inference is slower than cloud APIs — expect 10-30 seconds per chunk depending on GPU
 - WebGPU must be available and your GPU must support f16 shaders
@@ -142,4 +147,4 @@ co-reader/
 
 ## License
 
-MIT
+[MIT](LICENSE)
