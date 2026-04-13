@@ -1,9 +1,4 @@
-type AnalysisState = 'idle' | 'running' | 'done' | 'error'
-
-interface Status {
-  state: AnalysisState; message: string
-  paragraphsFound: number; paragraphsAnalyzed: number
-}
+import type { AnalysisState, Status } from './App'
 
 export function ControlBar({ status, onStart, onStop, missingApiKey }: {
   status: Status; onStart: () => void; onStop: () => void; missingApiKey: boolean
@@ -27,7 +22,7 @@ export function ControlBar({ status, onStart, onStop, missingApiKey }: {
           </>
         )}
         {isDone && !missingApiKey && <div class="control-msg control-msg--done">{status.message}</div>}
-        {isError && <div class="control-msg control-msg--error">{status.message}</div>}
+        {isError && !missingApiKey && <div class="control-msg control-msg--error">{status.message}</div>}
         {missingApiKey && !isRunning && (
           <div class="control-msg control-msg--error">API key required — open ⚙ to configure</div>
         )}

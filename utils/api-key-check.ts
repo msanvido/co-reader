@@ -6,6 +6,7 @@ import { PROVIDER_CONFIGS } from '@/entrypoints/background/providers/types'
  */
 export function isMissingApiKey(provider: ProviderID, apiKey: string): boolean {
   const config = PROVIDER_CONFIGS[provider]
+  if (!config) return false
   return config.requiresKey && !apiKey.trim()
 }
 
@@ -15,6 +16,6 @@ export function isMissingApiKey(provider: ProviderID, apiKey: string): boolean {
  */
 export function apiKeyErrorMessage(provider: ProviderID): string {
   const config = PROVIDER_CONFIGS[provider]
-  if (!config.requiresKey) return ''
+  if (!config?.requiresKey) return ''
   return `${config.name} API key required — open Settings to add one`
 }

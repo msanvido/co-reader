@@ -41,4 +41,12 @@ describe('ControlBar', () => {
     const btn = screen.getByRole('button', { name: /redo/i })
     expect(btn).toBeDisabled()
   })
+
+  it('shows only the missing-key message when missingApiKey is true and state is error', () => {
+    const errorStatus = { state: 'error' as const, message: 'No API key configured', paragraphsFound: 5, paragraphsAnalyzed: 0 }
+    render(<ControlBar status={errorStatus} onStart={noop} onStop={noop} missingApiKey={true} />)
+    const msgs = screen.getAllByText(/./i).filter(el => el.classList.contains('control-msg'))
+    expect(msgs).toHaveLength(1)
+    expect(msgs[0].textContent).toMatch(/api key required/i)
+  })
 })

@@ -34,9 +34,9 @@ interface AnalysisData {
   allParagraphs: ParagraphData[]
 }
 
-type AnalysisState = 'idle' | 'running' | 'done' | 'error'
+export type AnalysisState = 'idle' | 'running' | 'done' | 'error'
 
-interface Status {
+export interface Status {
   state: AnalysisState; message: string
   paragraphsFound: number; paragraphsAnalyzed: number
 }

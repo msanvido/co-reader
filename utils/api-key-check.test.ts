@@ -33,6 +33,10 @@ describe('isMissingApiKey', () => {
   it('treats whitespace-only key as missing', () => {
     expect(isMissingApiKey('anthropic', '   ')).toBe(true)
   })
+
+  it('returns false for unknown provider', () => {
+    expect(isMissingApiKey('unknown-provider' as any, '')).toBe(false)
+  })
 })
 
 describe('apiKeyErrorMessage', () => {
@@ -50,5 +54,9 @@ describe('apiKeyErrorMessage', () => {
   it('returns empty string for keyless providers', () => {
     expect(apiKeyErrorMessage('chrome-nano')).toBe('')
     expect(apiKeyErrorMessage('in-browser')).toBe('')
+  })
+
+  it('returns empty string for unknown provider', () => {
+    expect(apiKeyErrorMessage('unknown-provider' as any)).toBe('')
   })
 })
