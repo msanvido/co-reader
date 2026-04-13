@@ -421,8 +421,9 @@ kbd {
 
 .section-title-row {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .section-title {
@@ -432,6 +433,7 @@ kbd {
   letter-spacing: 0.08em;
   color: var(--text-muted);
   margin: 0;
+  min-width: 0;
 }
 
 .section-count {
