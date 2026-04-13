@@ -103,6 +103,29 @@ Select "In-Browser (Gemma)" as the provider and pick a model:
 - Inference is slower than cloud APIs — expect 10-30 seconds per chunk depending on GPU
 - WebGPU must be available and your GPU must support f16 shaders
 
+## Supported sites
+
+co-reader works on any site that uses standard HTML paragraph elements (`<p>` tags), which covers the vast majority of blogs, news sites, and documentation. This includes Anthropic, OpenAI, Google, GitHub, Substack, HackerNoon, Ars Technica, and most WordPress/Ghost sites.
+
+Custom adapters provide optimized paragraph detection for:
+
+| Site | Notes |
+|---|---|
+| Medium | Article container, excludes pullquotes |
+| Wikipedia | Content text area, excludes references and infoboxes |
+| arXiv | LaTeX-rendered paragraphs |
+| NY Times | Article body, excludes ads |
+| Substack | Post content |
+| The Guardian | Article body |
+| X / Twitter articles | Draft.js DOM (no `<p>` tags) |
+
+**Known limitations:**
+- Sites that put all text in a single element with `<br>` line breaks (e.g., paulgraham.com) are not currently supported
+- Paywalled content that isn't in the DOM won't be detected
+- SPAs that lazy-load article text may need a moment before paragraphs appear (the extension re-scans on DOM changes)
+
+To add support for a new site, create an adapter in `entrypoints/content/site-adapters.ts` — PRs welcome.
+
 ## Project structure
 
 ```

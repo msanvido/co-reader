@@ -18,6 +18,13 @@ export interface SiteAdapter {
 
 export const SITE_ADAPTERS: SiteAdapter[] = [
   {
+    domain: /^(x|twitter)\.com$/,
+    containerSelector: '[role="main"]',
+    paragraphSelector: 'div.longform-unstyled, h2.longform-header-two, h3.longform-header-three, li.longform-unordered-list-item, li.longform-ordered-list-item, blockquote.longform-blockquote',
+    exclusionSelectors: ['[data-testid="tweetButtonInline"]', 'nav', 'aside', '[role="navigation"]'],
+    minWordCount: 20,
+  },
+  {
     domain: /medium\.com/,
     containerSelector: 'article',
     paragraphSelector: 'p, h2, h3, blockquote',
