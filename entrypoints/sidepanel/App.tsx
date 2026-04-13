@@ -250,8 +250,11 @@ export function App() {
                     )}
 
                     {/* Paragraphs in this section */}
-                    {section.paragraphs.map((para) => {
+                    {section.paragraphs.map((para, pi) => {
                       const roleColor = ROLE_COLORS[para.role as keyof typeof ROLE_COLORS] ?? '#757575'
+                      let paraCounter = 0
+                      for (let k = 0; k < si; k++) paraCounter += data.sections[k].paragraphs.length
+                      const globalIdx = paraCounter + pi + 1
                       return (
                         <div
                           key={para.id}
@@ -260,6 +263,7 @@ export function App() {
                         >
                           <div class="guide-row" onClick={() => selectParagraph(para.id)} style={`--bar-color:${roleColor}`}>
                             <div class="guide-color-bar" title={para.role} />
+                            <span class="guide-num">{globalIdx}</span>
                             <span class="guide-summary">
                               {typeof para.summary === 'string' && (para.summary.includes('\n- ') || para.summary.startsWith('- '))
                                 ? <ul class="bullet-summary">{para.summary.split('\n').filter(l => l.trim()).map((line, li) =>
