@@ -13,6 +13,8 @@ import type {
 import { DEFAULT_SETTINGS } from '@/utils/types'
 import { PROVIDER_CONFIGS } from '@/entrypoints/background/providers/types'
 import { COMPRESSION_CONFIGS } from '@/utils/compression-prompts'
+import { isMissingApiKey } from '@/utils/api-key-check'
+import { ControlBar } from './ControlBar'
 
 interface ParagraphData {
   id: string; role: string; summary: string; originalText: string
@@ -93,6 +95,7 @@ export function App() {
   const activeParaIdRef = useRef<string | null>(null)
   const [backendInfo, setBackendInfo] = useState('')
   const [downloadMsg, setDownloadMsg] = useState<string | null>(null)
+  const [missingApiKey, setMissingApiKey] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const paraRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const dataRef = useRef<AnalysisData | null>(null)
@@ -168,6 +171,7 @@ export function App() {
       if (s) {
         const config = PROVIDER_CONFIGS[s.provider as ProviderID]
         setBackendInfo(`${config?.name ?? s.provider} · ${s.model}`)
+        setMissingApiKey(isMissingApiKey(s.provider, s.apiKey ?? ''))
       }
     } catch {}
   }
@@ -213,7 +217,7 @@ export function App() {
         <span class="panel-logo">co-reader</span>
         <button
           class={`settings-btn${showSettings ? ' settings-btn--active' : ''}`}
-          onClick={() => { setShowSettings(!showSettings); if (showSettings) loadBackendInfo() }}
+          onClick={() => { const closing = showSettings; setShowSettings(!showSettings); if (closing) loadBackendInfo() }}
         >{showSettings ? '✕' : '⚙'}</button>
       </header>
 
@@ -222,7 +226,7 @@ export function App() {
           {downloadMsg && (
             <div class="download-banner">{downloadMsg}</div>
           )}
-          <ControlBar status={status} onStart={handleStart} onStop={handleStop} />
+          <ControlBar status={status} onStart={handleStart} onStop={handleStop} missingApiKey={missingApiKey} />
 
           {data && (
             <div class="reading-guide">
@@ -324,47 +328,6 @@ export function App() {
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
         </a>
       </footer>
-    </div>
-  )
-}
-
-// ─── Control Bar ──────────────────────────────────────────────────────────────
-
-function ControlBar({ status, onStart, onStop }: {
-  status: Status; onStart: () => void; onStop: () => void
-}) {
-  const isRunning = status.state === 'running'
-  const isDone = status.state === 'done'
-  const isError = status.state === 'error'
-  const pct = Math.round(status.paragraphsAnalyzed / Math.max(1, status.paragraphsFound) * 100)
-
-  return (
-    <div class="control-bar">
-      <div class="control-left">
-        {isRunning && (
-          <>
-            <div class="control-msg">{status.message}</div>
-            <div class="control-progress">
-              <div class="progress-bar"><div class="progress-fill" style={`width:${pct}%`} /></div>
-              <span class="progress-text">{status.paragraphsAnalyzed}/{status.paragraphsFound}</span>
-            </div>
-          </>
-        )}
-        {isDone && <div class="control-msg control-msg--done">{status.message}</div>}
-        {isError && <div class="control-msg control-msg--error">{status.message}</div>}
-        {status.state === 'idle' && (
-          <div class="control-msg">
-            {status.paragraphsFound > 0 ? `${status.paragraphsFound} paragraphs` : 'No page loaded'}
-          </div>
-        )}
-      </div>
-      {isRunning ? (
-        <button class="ctrl-btn ctrl-btn--stop" onClick={onStop}>Stop</button>
-      ) : (
-        <button class="ctrl-btn ctrl-btn--start" onClick={onStart} disabled={status.paragraphsFound === 0}>
-          {isDone ? 'Redo' : 'Start'}
-        </button>
-      )}
     </div>
   )
 }

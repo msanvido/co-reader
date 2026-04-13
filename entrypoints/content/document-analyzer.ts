@@ -16,6 +16,7 @@ import {
   paragraphRegistry,
 } from './paragraph-detector'
 import { setCrossRefGraph } from './cross-ref-navigator'
+import { isMissingApiKey } from '@/utils/api-key-check'
 
 const MAX_CHARS_PER_PARA = 1500
 const MIN_CHUNK_SIZE = 4
@@ -65,6 +66,12 @@ export async function startAnalysis(): Promise<void> {
     if (settings?.compressionTechnique) technique = settings.compressionTechnique
     if (settings?.provider) providerId = settings.provider
     if (limits?.contextTokens) modelLimits = limits
+
+    if (isMissingApiKey(settings?.provider ?? 'anthropic', settings?.apiKey ?? '')) {
+      state = 'error'
+      statusMessage = 'No API key configured — open Settings to add one'
+      return
+    }
   } catch {}
 
   const config = COMPRESSION_CONFIGS[technique]

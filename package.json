@@ -9,6 +9,8 @@
     "dev": "npm run copy-ort && wxt",
     "build": "npm run copy-ort && wxt build",
     "zip": "npm run copy-ort && wxt zip",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "postinstall": "wxt prepare"
   },
@@ -18,7 +20,11 @@
     "preact": "^10.25.4"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/preact": "^3.2.4",
+    "jsdom": "^29.0.2",
     "typescript": "^5.7.3",
+    "vitest": "^4.1.4",
     "wxt": "^0.20.20"
   }
 }
