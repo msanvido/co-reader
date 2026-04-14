@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks'
 import {
   RELATIONSHIP_COLORS,
   RELATIONSHIP_LABELS,
-  RELATIONSHIP_ARROWS,
+  ROLE_COLORS,
 } from '@/utils/constants'
 import type {
   CrossReference,
@@ -236,24 +236,28 @@ export function App() {
 
               {data.sections.map((section, si) => {
                 const hasTitle = section.title && section.title !== document.title
-                let paraCounter = 0
-                // Calculate global paragraph index offset
-                for (let k = 0; k < si; k++) paraCounter += data.sections[k].paragraphs.length
 
                 return (
                   <div key={si} class="guide-section">
                     {/* Section header */}
                     {hasTitle && (
                       <div class="section-header">
-                        <div class="section-title">{section.title}</div>
+                        <div class="section-title-row">
+                          <div class="section-title">{section.title}</div>
+                          <span class="section-count">{section.paragraphs.length}</span>
+                        </div>
                         {section.summary && (
                           <div class="section-summary">{section.summary}</div>
                         )}
+                        <div class="section-divider" />
                       </div>
                     )}
 
                     {/* Paragraphs in this section */}
                     {section.paragraphs.map((para, pi) => {
+                      const roleColor = ROLE_COLORS[para.role as keyof typeof ROLE_COLORS] ?? '#757575'
+                      let paraCounter = 0
+                      for (let k = 0; k < si; k++) paraCounter += data.sections[k].paragraphs.length
                       const globalIdx = paraCounter + pi + 1
                       return (
                         <div
@@ -261,7 +265,8 @@ export function App() {
                           ref={(el) => { paraRefs.current[para.id] = el }}
                           class={`guide-card${activeParaId === para.id ? ' guide-card--active' : ''}`}
                         >
-                          <div class="guide-row" onClick={() => selectParagraph(para.id)}>
+                          <div class="guide-row" onClick={() => selectParagraph(para.id)} style={`--bar-color:${roleColor}`}>
+                            <div class="guide-color-bar" title={para.role} />
                             <span class="guide-num">{globalIdx}</span>
                             <span class="guide-summary">
                               {typeof para.summary === 'string' && (para.summary.includes('\n- ') || para.summary.startsWith('- '))
@@ -278,19 +283,19 @@ export function App() {
                               {para.crossReferences.map((ref, j) => {
                                 const idx = data.allParagraphs.findIndex(p => p.id === ref.targetParagraphId) + 1
                                 const color = RELATIONSHIP_COLORS[ref.relationship] ?? '#9E9E9E'
-                                const arrow = RELATIONSHIP_ARROWS[ref.relationship] ?? '→'
                                 return (
                                   <button
                                     key={`x${j}`}
                                     class="tag tag--xref"
-                                    style={`border-color:${color}`}
-                                    title={`${RELATIONSHIP_LABELS[ref.relationship]}: ${ref.description}`}
+                                    style={`background:${color}1F;color:${color};border-color:${color}4D`}
+                                    title={ref.description}
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       if (idx > 0) selectParagraph(ref.targetParagraphId)
                                     }}
                                   >
-                                    {arrow} ¶{idx > 0 ? idx : '?'} {ref.description}
+                                    <span>{RELATIONSHIP_LABELS[ref.relationship]}</span>
+                                    <span style="opacity:0.8">¶{idx > 0 ? idx : '?'}</span>
                                   </button>
                                 )
                               })}
