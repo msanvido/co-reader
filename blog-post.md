@@ -7,11 +7,11 @@ This felt oddly familiar. It's the same problem LLMs face when they run out of c
 I thought: what if we applied these same techniques not to fit text into a model's context, but to fit it into *mine*?
 So I started experimenting with different approaches in a small Chrome extension: the goal is very simple, it's trying to make reading more efficient. For every paragraph, you get:
 
-- **A short summary**: so you can scan the structure before diving in
+- **A short "compaction"**
 - **Key phrase highlights**: claims, evidence, definitions, caveats, and examples marked directly in the text
 - **Cross-references**: links between paragraphs that support, contradict, define, or elaborate on each other
 
-Click a summary in the panel and you scroll to that paragraph. Click a paragraph in the article and the panel syncs. It's a bidirectional reading guide that preserves the structure of the argument, not just the topic.
+Click a summary in the panel and you scroll to that paragraph. Click a paragraph in the article and the panel syncs. It’s a bidirectional reading guide that is compacting the paragraph.
 
 I know there are many note-taking applications, and by no means is this trying to replace them. This tool is meant to be an experiment on how to process the most information while reading, since a full-text summarization never felt enough for me.
 
