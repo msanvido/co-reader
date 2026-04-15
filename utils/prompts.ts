@@ -56,53 +56,6 @@ Return this JSON structure:
 }`
 }
 
-export function buildDeepDivePrompt(req: DeepDiveRequest): string {
-  const sectionMapStr = req.sectionMap
-    .map((s, i) => `  §${i + 1} "${s.title}" (${s.paragraphCount} paragraphs)`)
-    .join('\n')
-
-  const sectionParasStr = req.sectionParagraphs
-    .map(p => `[${p.id}]: ${p.text.slice(0, 200)}${p.text.length > 200 ? '...' : ''}`)
-    .join('\n\n')
-
-  return `Document: "${req.documentTitle}"
-
-Document structure:
-${sectionMapStr}
-
-Current section: "${req.sectionTitle}"
-
-Paragraphs in current section:
-${sectionParasStr}
-
-Target paragraph ID: ${req.paragraphId}
-Target paragraph (full text):
-"""
-${req.paragraphText}
-"""
-
-Return this JSON structure:
-{
-  "role": "THESIS|EVIDENCE|BACKGROUND|CAVEAT|EXAMPLE|TRANSITION|CONCLUSION|DATA",
-  "summary": "3-5 sentence functional analysis of what this paragraph does in the argument",
-  "highlights": [
-    {
-      "text": "exact substring from the target paragraph",
-      "category": "KEY_CLAIM|EVIDENCE|DEFINITION|CAVEAT|EXAMPLE",
-      "explanation": "why this span is highlighted (10 words max)"
-    }
-  ],
-  "crossReferences": [
-    {
-      "targetParagraphId": "cr-para-xxxx",
-      "relationship": "SUPPORTS|CONTRADICTS|DEFINES|ELABORATES|PREREQUISITES",
-      "description": "short description of the connection (15 words max)"
-    }
-  ],
-  "argumentativeRole": "one sentence about how this paragraph fits the overall argument"
-}`
-}
-
 export function buildDocumentAnalysisPrompt(req: DocumentAnalysisRequest): string {
   const parasStr = req.paragraphs
     .map(p => `[${p.id}] §"${p.section}": ${p.text.slice(0, 300)}${p.text.length > 300 ? '...' : ''}`)
