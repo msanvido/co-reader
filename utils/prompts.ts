@@ -1,4 +1,4 @@
-import type { MicroSummaryRequest, DeepDiveRequest, DocumentAnalysisRequest, FullPageAnalysisRequest } from './types'
+import type { MicroSummaryRequest, DeepDiveRequest, FullPageAnalysisRequest } from './types'
 
 // ─── System Prompts ──────────────────────────────────────────────────────────
 
@@ -20,11 +20,6 @@ Keep quoted spans short (5-20 words ideally). Do not overlap spans.
 For cross-references: only reference paragraph IDs that exist in the provided section paragraph list.
 
 Return valid JSON only. No markdown, no explanation outside the JSON.`
-
-export const DOCUMENT_ANALYSIS_SYSTEM = `You are analyzing the full structure of an article or document.
-Build a structural map: what role does each section play, and which paragraphs connect to which others.
-
-Be concise in descriptions to minimize tokens. Return valid JSON only. No markdown outside JSON.`
 
 // ─── User Prompt Builders ────────────────────────────────────────────────────
 
@@ -100,39 +95,6 @@ Return this JSON structure:
     }
   ],
   "argumentativeRole": "one sentence about how this paragraph fits the overall argument"
-}`
-}
-
-export function buildDocumentAnalysisPrompt(req: DocumentAnalysisRequest): string {
-  const parasStr = req.paragraphs
-    .map(p => `[${p.id}] §"${p.section}": ${p.text.slice(0, 300)}${p.text.length > 300 ? '...' : ''}`)
-    .join('\n\n')
-
-  return `Document title: "${req.title}"
-Document type: ${req.documentType}
-
-Paragraphs (with IDs):
-${parasStr}
-
-Return this JSON structure:
-{
-  "documentType": "argumentative|explanatory|narrative|reference|research",
-  "thesis": "one sentence capturing the central claim or purpose",
-  "sections": [
-    {
-      "title": "section title",
-      "role": "INTRODUCTION|BACKGROUND|METHODS|EVIDENCE|COUNTERARGUMENT|CONCLUSION",
-      "summary": "one sentence"
-    }
-  ],
-  "paragraphRoles": [
-    {
-      "id": "cr-para-xxxx",
-      "role": "THESIS|EVIDENCE|BACKGROUND|CAVEAT|EXAMPLE|TRANSITION|CONCLUSION|DATA",
-      "crossReferences": ["cr-para-yyyy"]
-    }
-  ],
-  "keyTerms": ["term1", "term2"]
 }`
 }
 
