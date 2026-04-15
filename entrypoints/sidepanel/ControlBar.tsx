@@ -1,4 +1,4 @@
-import type { AnalysisState, Status } from './App'
+import type { Status } from './types'
 
 export function ControlBar({ status, onStart, onStop, missingApiKey }: {
   status: Status; onStart: () => void; onStop: () => void; missingApiKey: boolean

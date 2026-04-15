@@ -15,31 +15,9 @@ import { PROVIDER_CONFIGS } from '@/entrypoints/background/providers/types'
 import { COMPRESSION_CONFIGS } from '@/utils/compression-prompts'
 import { isMissingApiKey } from '@/utils/api-key-check'
 import { ControlBar } from './ControlBar'
-
-interface ParagraphData {
-  id: string; role: string; summary: string; originalText: string
-  highlights: Array<{ text: string; category: string; explanation: string }>
-  crossReferences: CrossReference[]
-}
-
-interface SectionData {
-  title: string
-  summary: string
-  paragraphs: ParagraphData[]
-}
-
-interface AnalysisData {
-  thesis: string; keyTerms: string[]
-  sections: SectionData[]
-  allParagraphs: ParagraphData[]
-}
-
-export type AnalysisState = 'idle' | 'running' | 'done' | 'error'
-
-export interface Status {
-  state: AnalysisState; message: string
-  paragraphsFound: number; paragraphsAnalyzed: number
-}
+import { SettingsPanel } from './SettingsPanel'
+import { ReadingGuide } from './ReadingGuide'
+import type { AnalysisData, ParagraphData, Status } from './types'
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
 
@@ -57,25 +35,6 @@ function findParagraph(data: AnalysisData | null, id: string): ParagraphData | u
     if (found) return found
   }
   return undefined
-}
-
-function CopyUrl({ url }: { url: string }) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <button
-      class={`copy-url${copied ? ' copy-url--copied' : ''}`}
-      onClick={() => {
-        navigator.clipboard.writeText(url).then(() => {
-          setCopied(true)
-          setTimeout(() => setCopied(false), 2000)
-        })
-      }}
-      title="Click to copy, then paste in address bar"
-    >
-      <span class="copy-url-text">{url}</span>
-      <span class="copy-url-icon">{copied ? '✓' : '⧉'}</span>
-    </button>
-  )
 }
 
 async function sendToTab(msg: any): Promise<any> {
@@ -229,85 +188,12 @@ export function App() {
           <ControlBar status={status} onStart={handleStart} onStop={handleStop} missingApiKey={missingApiKey} />
 
           {data && (
-            <div class="reading-guide">
-              {data.thesis && (
-                <div class="guide-thesis">{data.thesis}</div>
-              )}
-
-              {data.sections.map((section, si) => {
-                const hasTitle = section.title && section.title !== document.title
-
-                return (
-                  <div key={si} class="guide-section">
-                    {/* Section header */}
-                    {hasTitle && (
-                      <div class="section-header">
-                        <div class="section-title-row">
-                          <div class="section-title">{section.title}</div>
-                          <span class="section-count">{section.paragraphs.length}</span>
-                        </div>
-                        {section.summary && (
-                          <div class="section-summary">{section.summary}</div>
-                        )}
-                        <div class="section-divider" />
-                      </div>
-                    )}
-
-                    {/* Paragraphs in this section */}
-                    {section.paragraphs.map((para, pi) => {
-                      const roleColor = ROLE_COLORS[para.role as keyof typeof ROLE_COLORS] ?? '#757575'
-                      let paraCounter = 0
-                      for (let k = 0; k < si; k++) paraCounter += data.sections[k].paragraphs.length
-                      const globalIdx = paraCounter + pi + 1
-                      return (
-                        <div
-                          key={para.id}
-                          ref={(el) => { paraRefs.current[para.id] = el }}
-                          class={`guide-card${activeParaId === para.id ? ' guide-card--active' : ''}`}
-                        >
-                          <div class="guide-row" onClick={() => selectParagraph(para.id)} style={`--bar-color:${roleColor}`}>
-                            <div class="guide-color-bar" title={para.role} />
-                            <span class="guide-num">{globalIdx}</span>
-                            <span class="guide-summary">
-                              {typeof para.summary === 'string' && (para.summary.includes('\n- ') || para.summary.startsWith('- '))
-                                ? <ul class="bullet-summary">{para.summary.split('\n').filter(l => l.trim()).map((line, li) =>
-                                    <li key={li}>{line.replace(/^-\s*/, '')}</li>
-                                  )}</ul>
-                                : String(para.summary ?? '')
-                              }
-                            </span>
-                          </div>
-
-                          {para.crossReferences.length > 0 && activeParaId === para.id && (
-                            <div class="guide-tags">
-                              {para.crossReferences.map((ref, j) => {
-                                const idx = data.allParagraphs.findIndex(p => p.id === ref.targetParagraphId) + 1
-                                const color = RELATIONSHIP_COLORS[ref.relationship] ?? '#9E9E9E'
-                                return (
-                                  <button
-                                    key={`x${j}`}
-                                    class="tag tag--xref"
-                                    style={`background:${color}1F;color:${color};border-color:${color}4D`}
-                                    title={ref.description}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      if (idx > 0) selectParagraph(ref.targetParagraphId)
-                                    }}
-                                  >
-                                    <span>{RELATIONSHIP_LABELS[ref.relationship]}</span>
-                                    <span style="opacity:0.8">¶{idx > 0 ? idx : '?'}</span>
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })}
-            </div>
+            <ReadingGuide
+              data={data}
+              activeParaId={activeParaId}
+              selectParagraph={selectParagraph}
+              paraRefs={paraRefs}
+            />
           )}
 
           {!data && status.state !== 'running' && (
@@ -337,157 +223,3 @@ export function App() {
   )
 }
 
-// ─── Settings Panel ───────────────────────────────────────────────────────────
-
-function SettingsPanel() {
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
-  const [status, setStatus] = useState<'checking' | 'ok' | 'error'>('checking')
-  const [statusMsg, setStatusMsg] = useState('Checking...')
-  const [editingKey, setEditingKey] = useState(false)
-  const [keyDraft, setKeyDraft] = useState('')
-  const [keyVisible, setKeyVisible] = useState(false)
-  const keyRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => { loadSettings() }, [])
-
-  async function loadSettings() {
-    try {
-      const s = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' })
-      setSettings(s); setKeyDraft(s.apiKey)
-      const config = PROVIDER_CONFIGS[s.provider as ProviderID]
-      if (config.requiresKey && !s.apiKey) { setStatus('error'); setStatusMsg('No API key'); setEditingKey(true) }
-      else { setStatus('ok'); setStatusMsg('Ready') }
-    } catch { setStatus('error'); setStatusMsg('Service worker error') }
-  }
-
-  async function testConnection() {
-    const config = PROVIDER_CONFIGS[settings.provider]
-    if (config.requiresKey && !settings.apiKey) { setStatus('error'); setStatusMsg('No API key'); return }
-    setStatus('checking'); setStatusMsg('Testing connection...')
-    try {
-      const r = await chrome.runtime.sendMessage({ type: 'TEST_API_KEY' })
-      if (r?.ok) { setStatus('ok'); setStatusMsg(`Connected to ${config.name}`) }
-      else { setStatus('error'); setStatusMsg(r?.error ?? 'Failed') }
-    } catch { setStatus('error'); setStatusMsg('Service worker error') }
-  }
-
-  async function save(patch: Partial<Settings>) {
-    const u = { ...settings, ...patch }; setSettings(u)
-    await chrome.runtime.sendMessage({ type: 'UPDATE_SETTINGS', payload: u })
-  }
-  async function saveKey() { await save({ apiKey: keyDraft.trim() }); setEditingKey(false) }
-  function changeProvider(id: ProviderID) {
-    const c = PROVIDER_CONFIGS[id]
-    save({ provider: id, model: c.defaultModel, apiKey: id === settings.provider ? settings.apiKey : '' })
-    setKeyDraft(''); setEditingKey(c.requiresKey)
-  }
-
-  const config = PROVIDER_CONFIGS[settings.provider]
-  const dotColor = status === 'ok' ? '#44CC44' : status === 'error' ? '#FF4444' : '#FFAA00'
-  const masked = settings.apiKey ? settings.apiKey.slice(0, 8) + '••••' + settings.apiKey.slice(-4) : ''
-
-  return (
-    <div class="settings-panel">
-      <div class={`status-bar status-bar--${status === 'ok' ? 'connected' : status}`}>
-        <span class="status-dot" style={`background:${dotColor};box-shadow:0 0 6px ${dotColor}`} />
-        <span class="status-msg">{statusMsg}</span>
-        <button class="test-btn" onClick={testConnection} disabled={status === 'checking'}>
-          {status === 'checking' ? 'Testing...' : 'Test'}
-        </button>
-      </div>
-      <section class="popup-section">
-        <label class="popup-label">Provider</label>
-        <select class="provider-select" value={settings.provider} onChange={(e) => changeProvider((e.target as HTMLSelectElement).value as ProviderID)}>
-          {Object.values(PROVIDER_CONFIGS).map(p => <option key={p.id} value={p.id}>{p.name}{p.requiresKey ? '' : ' (free)'}</option>)}
-        </select>
-      </section>
-      <section class="popup-section">
-        <label class="popup-label">Model</label>
-        <select class="provider-select" value={settings.model} onChange={(e) => save({ model: (e.target as HTMLSelectElement).value })}>
-          {config.models.map(m => <option key={m} value={m}>{m.endsWith(':free') ? '🆓 ' + m.replace(':free', '') : m}</option>)}
-        </select>
-      </section>
-      <section class="popup-section">
-        <label class="popup-label">Compression</label>
-        <select class="provider-select" value={settings.compressionTechnique}
-          onChange={(e) => save({ compressionTechnique: (e.target as HTMLSelectElement).value as CompressionTechnique })}>
-          {Object.values(COMPRESSION_CONFIGS).map(c => (
-            <option key={c.id} value={c.id}>
-              {c.label}{c.costMultiplier > 1 ? ` (${c.costMultiplier}x calls)` : ''}
-            </option>
-          ))}
-        </select>
-        <div class="hint-text">{COMPRESSION_CONFIGS[settings.compressionTechnique]?.description}</div>
-      </section>
-      {config.requiresKey && (
-        <section class="popup-section">
-          <label class="popup-label">API Key <a href={config.helpUrl} target="_blank" rel="noopener noreferrer" class="hint-link" style="margin-left:6px">Get key →</a></label>
-          {!editingKey && settings.apiKey ? (
-            <div class="key-display">
-              <code class="key-masked">{masked}</code>
-              <button class="change-btn" onClick={() => { setEditingKey(true); setKeyDraft(settings.apiKey); setTimeout(() => keyRef.current?.focus(), 50) }}>Change</button>
-            </div>
-          ) : (
-            <div class="key-edit">
-              <input ref={keyRef} type={keyVisible ? 'text' : 'password'} class="api-key-input" value={keyDraft} placeholder={config.keyPlaceholder} autoFocus onInput={(e) => setKeyDraft((e.target as HTMLInputElement).value)} onKeyDown={(e) => e.key === 'Enter' && saveKey()} />
-              <div class="key-actions">
-                <button class="icon-btn" onClick={() => setKeyVisible(!keyVisible)}>{keyVisible ? '🙈' : '👁'}</button>
-                <button class="save-btn" onClick={saveKey} disabled={!keyDraft.trim()}>Save</button>
-                {settings.apiKey && <button class="cancel-btn" onClick={() => setEditingKey(false)}>Cancel</button>}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-      <section class="popup-section">
-        <label class="toggle-row">
-          <span>Enable</span>
-          <button class={`toggle ${settings.enabled ? 'toggle--on' : ''}`} onClick={() => save({ enabled: !settings.enabled })}>
-            {settings.enabled ? 'ON' : 'OFF'}
-          </button>
-        </label>
-      </section>
-
-      {settings.provider === 'in-browser' && (
-        <div class="nano-help">
-          <strong>In-Browser Gemma (transformers.js)</strong>
-          <p>Runs entirely on-device via WebGPU — no API key, no data sent to any server.</p>
-          <p>The model is <strong>downloaded once</strong> from HuggingFace on first use (~500 MB for E2B, ~1.5 GB for E4B) and cached by your browser. Subsequent runs load from cache instantly.</p>
-          <p><strong>Requirements:</strong></p>
-          <ul>
-            <li>Chrome 113+ or Edge 113+ with WebGPU</li>
-            <li>GPU with f16 shader support</li>
-          </ul>
-          <p>Note: Inference is slower than cloud APIs (10-30s per chunk). Best for moderate-length articles.</p>
-        </div>
-      )}
-
-      {settings.provider === 'chrome-nano' && (
-        <div class="nano-help">
-          <strong>In-Browser Chrome Native (Gemini Nano)</strong>
-          <p>Runs entirely on-device — no API key, no data sent to any server. Requires Chrome 131+ and manual setup:</p>
-          <ol>
-            <li>
-              Copy and paste this into your address bar:
-              <CopyUrl url="chrome://flags/#optimization-guide-on-device-model" />
-              Set to <strong>Enabled BypassPerfRequirement</strong>
-            </li>
-            <li>
-              Then paste this:
-              <CopyUrl url="chrome://flags/#prompt-api-for-gemini-nano" />
-              Set to <strong>Enabled</strong>
-            </li>
-            <li>Relaunch Chrome</li>
-            <li>
-              Paste this:
-              <CopyUrl url="chrome://components" />
-              Find <strong>Optimization Guide On Device Model</strong> and click "Check for update" (~1.7GB download)
-            </li>
-            <li>Wait for download, then restart Chrome</li>
-          </ol>
-          <p>Note: Output quality is lower than cloud models. Best for short articles.</p>
-        </div>
-      )}
-    </div>
-  )
-}
