@@ -1,6 +1,6 @@
 {
   "name": "co-reader",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Intelligent reading companion — paragraph-level summarization, highlights, and cross-references",
   "private": true,
   "type": "module",

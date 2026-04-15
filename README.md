@@ -161,6 +161,14 @@ co-reader/
 └── assets/styles/                 # CSS for highlights, tooltips
 ```
 
+## Packaging for the Chrome Web Store
+
+1. Bump the version in `package.json`
+2. Run `npm run zip` — this builds the extension and creates a `.zip` in `output/`
+3. Go to the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
+4. Find the co-reader listing, click **Package** > **Upload new package**
+5. Upload the `.zip` and submit for review
+
 ## Tech stack
 
 - [WXT](https://wxt.dev/) — extension framework (Manifest V3)
