@@ -11,6 +11,12 @@ export const paragraphRegistry = new Map<string, ParagraphMeta>()
 /** Map from element → paragraph ID (weak, so GC can collect detached elements) */
 const elementToId = new WeakMap<Element, string>()
 
+/** Map from element → its index in paragraphOrder */
+let elementToIndex = new WeakMap<Element, number>()
+
+/** Map from paragraph ID → cached text */
+const paragraphTextCache = new Map<string, string>()
+
 /** Ordered list of paragraph elements (in document order) */
 export let paragraphOrder: Element[] = []
 
@@ -18,6 +24,8 @@ export let paragraphOrder: Element[] = []
 
 export function buildParagraphRegistry(): void {
   paragraphRegistry.clear()
+  paragraphTextCache.clear()
+  elementToIndex = new WeakMap<Element, number>()
   paragraphOrder = []
 
   const adapter = getAdapterForHostname(window.location.hostname)
@@ -93,9 +101,11 @@ export function buildParagraphRegistry(): void {
     }
 
     paragraphRegistry.set(id, meta)
+    paragraphTextCache.set(id, text)
     elementToId.set(el, id)
     el.setAttribute(PARA_ATTR, id)
 
+    elementToIndex.set(el, paragraphOrder.length)
     paragraphOrder.push(el)
     paragraphIndex++
   }
@@ -138,6 +148,18 @@ export function getParagraphId(element: Element): string | undefined {
 }
 
 /**
+ * Get the cached text for a paragraph element.
+ */
+export function getParagraphText(element: Element): string {
+  const id = getParagraphId(element)
+  if (id) {
+    const cached = paragraphTextCache.get(id)
+    if (cached !== undefined) return cached
+  }
+  return extractText(element)
+}
+
+/**
  * Get surrounding paragraph text for context window.
  */
 export function getSurroundingText(
@@ -145,17 +167,17 @@ export function getSurroundingText(
   before: number,
   after: number
 ): { preceding: string; following: string } {
-  const idx = paragraphOrder.indexOf(element)
+  const idx = elementToIndex.get(element) ?? paragraphOrder.indexOf(element)
   if (idx === -1) return { preceding: '', following: '' }
 
   const preceding = paragraphOrder
     .slice(Math.max(0, idx - before), idx)
-    .map(el => extractText(el))
+    .map(el => getParagraphText(el))
     .join('\n\n')
 
   const following = paragraphOrder
     .slice(idx + 1, idx + 1 + after)
-    .map(el => extractText(el))
+    .map(el => getParagraphText(el))
     .join('\n\n')
 
   return { preceding, following }
@@ -179,7 +201,7 @@ export function getSectionParagraphs(element: Element): Array<{ id: string; text
     })
     .map(el => ({
       id: getParagraphId(el)!,
-      text: extractText(el),
+      text: getParagraphText(el),
     }))
 }
 
@@ -208,7 +230,7 @@ export function getAllParagraphsForAnalysis(): Array<{ id: string; section: stri
     return {
       id,
       section: meta?.sectionTitle ?? '',
-      text: extractText(el),
+      text: getParagraphText(el),
     }
   })
 }
