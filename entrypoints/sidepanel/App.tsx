@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'preact/hooks'
+import { useState, useEffect, useRef, useMemo } from 'preact/hooks'
 import {
   RELATIONSHIP_COLORS,
   RELATIONSHIP_LABELS,
@@ -90,6 +90,17 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [status, setStatus] = useState<Status>({ state: 'idle', message: '', paragraphsFound: 0, paragraphsAnalyzed: 0 })
   const [data, setData] = useState<AnalysisData | null>(null)
+
+  const paragraphIndexMap = useMemo(() => {
+    const map = new Map<string, number>()
+    if (data?.allParagraphs) {
+      data.allParagraphs.forEach((p, index) => {
+        map.set(p.id, index + 1)
+      })
+    }
+    return map
+  }, [data])
+
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [activeParaId, _setActiveParaId] = useState<string | null>(null)
   const activeParaIdRef = useRef<string | null>(null)
@@ -281,7 +292,7 @@ export function App() {
                           {para.crossReferences.length > 0 && activeParaId === para.id && (
                             <div class="guide-tags">
                               {para.crossReferences.map((ref, j) => {
-                                const idx = data.allParagraphs.findIndex(p => p.id === ref.targetParagraphId) + 1
+                                const idx = paragraphIndexMap.get(ref.targetParagraphId) ?? 0
                                 const color = RELATIONSHIP_COLORS[ref.relationship] ?? '#9E9E9E'
                                 return (
                                   <button
