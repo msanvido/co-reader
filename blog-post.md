@@ -47,7 +47,9 @@ The extension can fully run in your browser using local models (2 supported appr
 Both local options are more proof-of-concept than production-ready. Cloud models are dramatically faster and higher quality. But for privacy-sensitive content or just for the novelty of running an LLM in a browser extension, they work. The most common LLMs are supported out of the gate (BYOK).
 
 Try It!
-https://github.com/msanvido/co-reader.git
+https://chromewebstore.google.com/detail/co-reader/eikmfiiionefgmcjdojpimiklheldhdp
+
+Contributions welcome at https://github.com/msanvido/co-reader
 
 ## What's Next
 
