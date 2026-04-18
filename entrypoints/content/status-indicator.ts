@@ -5,6 +5,15 @@
 
 const ID = 'cr-page-status'
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
 export function showPageStatus(color: string, text: string): void {
   let el = document.getElementById(ID)
   if (!el) {
@@ -16,9 +25,9 @@ export function showPageStatus(color: string, text: string): void {
   el.innerHTML = `
     <span style="
       display:inline-block;width:10px;height:10px;border-radius:50%;
-      background:${color};box-shadow:0 0 6px ${color};flex-shrink:0;
+      background:${escapeHtml(color)};box-shadow:0 0 6px ${escapeHtml(color)};flex-shrink:0;
     "></span>
-    <span style="color:#ccc;font-size:12px">${text}</span>
+    <span style="color:#ccc;font-size:12px">${escapeHtml(text)}</span>
   `
   el.setAttribute('style', `
     position:fixed;bottom:16px;left:16px;z-index:2147483646;
