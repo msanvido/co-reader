@@ -13,13 +13,27 @@ export function showPageStatus(color: string, text: string): void {
     document.body.appendChild(el)
   }
 
-  el.innerHTML = `
-    <span style="
-      display:inline-block;width:10px;height:10px;border-radius:50%;
-      background:${color};box-shadow:0 0 6px ${color};flex-shrink:0;
-    "></span>
-    <span style="color:#ccc;font-size:12px">${text}</span>
-  `
+  el.innerHTML = '' // Clear existing content securely
+
+  // Create dot securely
+  const dot = document.createElement('span')
+  dot.style.display = 'inline-block'
+  dot.style.width = '10px'
+  dot.style.height = '10px'
+  dot.style.borderRadius = '50%'
+  dot.style.background = color
+  dot.style.boxShadow = `0 0 6px ${color}`
+  dot.style.flexShrink = '0'
+
+  // Create text container securely
+  const textSpan = document.createElement('span')
+  textSpan.style.color = '#ccc'
+  textSpan.style.fontSize = '12px'
+  textSpan.textContent = text
+
+  el.appendChild(dot)
+  el.appendChild(textSpan)
+
   el.setAttribute('style', `
     position:fixed;bottom:16px;left:16px;z-index:2147483646;
     display:flex;align-items:center;gap:8px;
