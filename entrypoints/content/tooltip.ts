@@ -2,6 +2,7 @@ import { TOOLTIP_CLASS, ROLE_COLORS, ROLE_LABELS, RELATIONSHIP_ARROWS, RELATIONS
 import type { MicroSummaryResponse, CrossReference } from '@/utils/types'
 import { getElementById } from './paragraph-detector'
 import { pulseElement } from './highlight-injector'
+import { escapeHtml } from '@/utils/text-utils'
 
 // ─── Tooltip element ──────────────────────────────────────────────────────────
 
@@ -54,22 +55,22 @@ export function showTooltipResult(
   const crossRefHtml = crossRefs.slice(0, 3).map(ref => {
     const arrow = RELATIONSHIP_ARROWS[ref.relationship] ?? '→'
     const label = RELATIONSHIP_LABELS[ref.relationship] ?? ref.relationship
-    return `<button class="cr-xref-chip" data-target-id="${ref.targetParagraphId}" title="${ref.description}">
-      <span class="cr-xref-arrow">${arrow}</span>
-      <span class="cr-xref-label">${label}</span>
+    return `<button class="cr-xref-chip" data-target-id="${escapeHtml(ref.targetParagraphId)}" title="${escapeHtml(ref.description)}">
+      <span class="cr-xref-arrow">${escapeHtml(arrow)}</span>
+      <span class="cr-xref-label">${escapeHtml(label)}</span>
     </button>`
   }).join('')
 
   tooltip.innerHTML = `
     <div class="cr-tooltip-header">
-      <span class="cr-role-badge" style="background:${roleColor}20;color:${roleColor};border-color:${roleColor}40">${roleLabel}</span>
+      <span class="cr-role-badge" style="background:${escapeHtml(roleColor)}20;color:${escapeHtml(roleColor)};border-color:${escapeHtml(roleColor)}40">${escapeHtml(roleLabel)}</span>
     </div>
     <div class="cr-tooltip-divider"></div>
     <p class="cr-tooltip-summary">${escapeHtml(result.summary)}</p>
     ${crossRefHtml || crossRefs.length === 0 ? '' : '<div class="cr-tooltip-divider"></div>'}
     ${crossRefHtml ? `<div class="cr-xref-chips">${crossRefHtml}</div>` : ''}
     <div class="cr-tooltip-divider"></div>
-    <button class="cr-deep-dive-btn" data-para-id="${paragraphId}">Deep dive →</button>
+    <button class="cr-deep-dive-btn" data-para-id="${escapeHtml(paragraphId)}">Deep dive →</button>
   `
 
   // Wire up cross-reference chip clicks
@@ -134,12 +135,3 @@ function positionTooltip(tooltip: HTMLElement, anchor: Element): void {
 }
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-}
