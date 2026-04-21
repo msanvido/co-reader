@@ -9,15 +9,15 @@ export function createOpenRouterProvider(apiKey: string, model: string): LLMProv
     name: 'OpenRouter',
 
     async call(system, userPrompt, maxTokens) {
-      if (!apiKey) throw new Error('No OpenRouter API key. Go to Settings and add one (free at openrouter.ai/keys).')
+      const trimmedKey = (apiKey ?? '').trim()
+      if (!trimmedKey) throw new Error('No OpenRouter API key. Go to Settings and add one (free at openrouter.ai/keys).')
+      console.log(`[co-reader] OpenRouter call — model=${model}, key length=${trimmedKey.length}, prefix=${trimmedKey.slice(0, 8)}`)
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         const response = await fetch(API_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-            'HTTP-Referer': 'https://co-reader.extension',
-            'X-Title': 'co-reader',
+            'Authorization': `Bearer ${trimmedKey}`,
           },
           body: JSON.stringify({
             model,
@@ -38,6 +38,7 @@ export function createOpenRouterProvider(apiKey: string, model: string): LLMProv
 
         if (!response.ok) {
           const body = await response.text()
+          console.error(`[co-reader] OpenRouter ${response.status} for model=${model}:`, body.slice(0, 500))
           let msg = `OpenRouter ${response.status}`
           try { msg = JSON.parse(body)?.error?.message ?? msg } catch {}
           throw new Error(msg)
@@ -55,11 +56,12 @@ export function createOpenRouterProvider(apiKey: string, model: string): LLMProv
     },
 
     async test() {
-      if (!apiKey) return { ok: false, error: 'No API key' }
+      const trimmedKey = (apiKey ?? '').trim()
+      if (!trimmedKey) return { ok: false, error: 'No API key' }
       try {
         // Validate key without making an LLM call — just check auth
         const resp = await fetch('https://openrouter.ai/api/v1/auth/key', {
-          headers: { 'Authorization': `Bearer ${apiKey}` },
+          headers: { 'Authorization': `Bearer ${trimmedKey}` },
         })
         if (resp.ok) return { ok: true }
         const body = await resp.text()

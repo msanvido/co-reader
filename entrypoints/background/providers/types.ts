@@ -86,6 +86,8 @@ export const PROVIDER_CONFIGS: Record<ProviderID, ProviderConfig> = {
     defaultModel: 'google/gemma-3-27b-it:free',
     models: [
       // ── Free models (fallback — UI fetches the live catalog) ──
+      'google/gemma-4-31b-it:free',
+      'google/gemma-4-26b-a4b-it:free',
       'google/gemma-3-27b-it:free',
       'nvidia/nemotron-3-super-120b-a12b:free',
       'meta-llama/llama-3.3-70b-instruct:free',
@@ -115,6 +117,8 @@ export const PROVIDER_CONFIGS: Record<ProviderID, ProviderConfig> = {
     helpUrl: 'https://openrouter.ai/keys',
     modelLimits: {
       // Free models
+      'google/gemma-4-31b-it:free':                  { contextTokens: 128_000,   maxOutputTokens: 8_192 },
+      'google/gemma-4-26b-a4b-it:free':              { contextTokens: 128_000,   maxOutputTokens: 8_192 },
       'google/gemma-3-27b-it:free':                  { contextTokens: 96_000,    maxOutputTokens: 8_192 },
       'nvidia/nemotron-3-super-120b-a12b:free':      { contextTokens: 128_000,   maxOutputTokens: 16_384 },
       'meta-llama/llama-3.3-70b-instruct:free':      { contextTokens: 128_000,   maxOutputTokens: 16_384 },
