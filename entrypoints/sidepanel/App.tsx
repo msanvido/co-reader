@@ -14,6 +14,7 @@ import { DEFAULT_SETTINGS } from '@/utils/types'
 import { PROVIDER_CONFIGS } from '@/entrypoints/background/providers/types'
 import { COMPRESSION_CONFIGS } from '@/utils/compression-prompts'
 import { isMissingApiKey } from '@/utils/api-key-check'
+import { useProviderModels } from '@/utils/use-provider-models'
 import { ControlBar } from './ControlBar'
 
 interface ParagraphData {
@@ -377,7 +378,7 @@ function SettingsPanel() {
     setStatus('checking'); setStatusMsg('Testing connection...')
     try {
       const r = await chrome.runtime.sendMessage({ type: 'TEST_API_KEY' })
-      if (r?.ok) { setStatus('ok'); setStatusMsg(`Connected to ${config.name}`) }
+      if (r?.ok) { setStatus('ok'); setStatusMsg(`Connected to ${config.name}`); refreshModels() }
       else { setStatus('error'); setStatusMsg(r?.error ?? 'Failed') }
     } catch { setStatus('error'); setStatusMsg('Service worker error') }
   }
@@ -394,6 +395,26 @@ function SettingsPanel() {
   }
 
   const config = PROVIDER_CONFIGS[settings.provider]
+  const { models: liveModels, loading: modelsLoading, refresh: refreshModels } =
+    useProviderModels(settings.provider, settings.apiKey)
+
+  const modelOptions = useMemo(() => {
+    if (liveModels && liveModels.length > 0) {
+      const sorted = [...liveModels].sort((a, b) => {
+        if (!!a.isFree !== !!b.isFree) return a.isFree ? -1 : 1
+        return a.label.localeCompare(b.label)
+      })
+      return sorted.map(m => ({
+        value: m.id,
+        label: (m.isFree ? '🆓 ' : '') + m.label,
+      }))
+    }
+    return config.models.map(m => ({
+      value: m,
+      label: m.endsWith(':free') ? '🆓 ' + m.replace(':free', '') : m,
+    }))
+  }, [liveModels, config.models])
+
   const dotColor = status === 'ok' ? '#44CC44' : status === 'error' ? '#FF4444' : '#FFAA00'
   const masked = settings.apiKey ? settings.apiKey.slice(0, 8) + '••••' + settings.apiKey.slice(-4) : ''
 
@@ -413,9 +434,12 @@ function SettingsPanel() {
         </select>
       </section>
       <section class="popup-section">
-        <label class="popup-label">Model</label>
+        <label class="popup-label">
+          Model
+          {modelsLoading && <span class="hint-link" style="margin-left:6px">loading…</span>}
+        </label>
         <select class="provider-select" value={settings.model} onChange={(e) => save({ model: (e.target as HTMLSelectElement).value })}>
-          {config.models.map(m => <option key={m} value={m}>{m.endsWith(':free') ? '🆓 ' + m.replace(':free', '') : m}</option>)}
+          {modelOptions.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
         </select>
       </section>
       <section class="popup-section">

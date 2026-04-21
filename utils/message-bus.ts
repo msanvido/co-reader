@@ -14,8 +14,10 @@ import type {
   DocumentAnalysisRequest,
   FullPageAnalysisRequest,
   Settings,
+  ProviderID,
   DeepDiveResponse,
 } from './types'
+import type { ModelInfo } from '@/entrypoints/background/providers/types'
 
 // ─── Typed message senders ───────────────────────────────────────────────────
 
@@ -59,6 +61,13 @@ export function sendOpenSidePanel(
 ): Promise<void> {
   const msg: OpenSidePanelMessage = { type: 'OPEN_SIDE_PANEL', payload: data }
   return chrome.runtime.sendMessage(msg)
+}
+
+export function sendListModels(
+  providerId: ProviderID,
+  apiKey: string,
+): Promise<{ ok: boolean; models?: ModelInfo[]; error?: string }> {
+  return chrome.runtime.sendMessage({ type: 'LIST_MODELS', payload: { providerId, apiKey } })
 }
 
 // ─── Message type guard ───────────────────────────────────────────────────────

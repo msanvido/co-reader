@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'preact/hooks'
+import { useState, useEffect, useRef, useMemo } from 'preact/hooks'
 import { sendGetSettings, sendUpdateSettings } from '@/utils/message-bus'
+import { useProviderModels } from '@/utils/use-provider-models'
 import type { Settings, ProviderID } from '@/utils/types'
 import { DEFAULT_SETTINGS } from '@/utils/types'
 import { PROVIDER_CONFIGS } from '@/entrypoints/background/providers/types'
@@ -38,6 +39,7 @@ export function PopupApp() {
       if (r?.ok) {
         setStatus('connected')
         setStatusMsg(`Connected to ${config.name}`)
+        refreshModels()
       } else {
         setStatus('error')
         setStatusMsg(r?.error ?? 'Connection failed')
@@ -81,6 +83,26 @@ export function PopupApp() {
   }
 
   const config = PROVIDER_CONFIGS[settings.provider]
+  const { models: liveModels, loading: modelsLoading, refresh: refreshModels } =
+    useProviderModels(settings.provider, settings.apiKey)
+
+  const modelOptions = useMemo(() => {
+    if (liveModels && liveModels.length > 0) {
+      const sorted = [...liveModels].sort((a, b) => {
+        if (!!a.isFree !== !!b.isFree) return a.isFree ? -1 : 1
+        return a.label.localeCompare(b.label)
+      })
+      return sorted.map(m => ({
+        value: m.id,
+        label: (m.isFree ? '🆓 ' : '') + m.label,
+      }))
+    }
+    return config.models.map(m => ({
+      value: m,
+      label: m.endsWith(':free') ? '🆓 ' + m.replace(':free', '') : m,
+    }))
+  }, [liveModels, config.models])
+
   const statusColor: Record<ConnectionStatus, string> = {
     checking: '#FFAA00', connected: '#44CC44', error: '#FF4444', 'no-key': '#FF4444',
   }
@@ -122,14 +144,17 @@ export function PopupApp() {
 
       {/* Model selector */}
       <section class="popup-section">
-        <label class="popup-label">Model</label>
+        <label class="popup-label">
+          Model
+          {modelsLoading && <span class="hint-link" style="margin-left:6px">loading…</span>}
+        </label>
         <select
           class="provider-select"
           value={settings.model}
           onChange={(e) => changeModel((e.target as HTMLSelectElement).value)}
         >
-          {config.models.map(m => (
-            <option key={m} value={m}>{m}</option>
+          {modelOptions.map(m => (
+            <option key={m.value} value={m.value}>{m.label}</option>
           ))}
         </select>
       </section>

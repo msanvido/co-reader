@@ -24,6 +24,21 @@ export default defineBackground(() => {
       return true
     }
 
+    if (m?.type === 'LIST_MODELS') {
+      const { providerId, apiKey } = (m.payload as { providerId: string; apiKey: string }) ?? { providerId: '', apiKey: '' }
+      import('./providers').then(({ createProvider }) => {
+        const provider = createProvider(providerId as any, apiKey ?? '', '')
+        if (!provider.listModels) {
+          sendResponse({ ok: false, error: 'Provider does not support listing models' })
+          return
+        }
+        provider.listModels()
+          .then(models => sendResponse({ ok: true, models }))
+          .catch(err => sendResponse({ ok: false, error: String(err?.message ?? err) }))
+      }).catch(e => sendResponse({ ok: false, error: String(e) }))
+      return true
+    }
+
     if (m?.type === 'GET_MICRO_SUMMARY') {
       import('./llm').then(({ fetchMicroSummary }) =>
         fetchMicroSummary(m.payload as any)

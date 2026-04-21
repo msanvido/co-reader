@@ -1,10 +1,20 @@
 import type { ProviderID } from '@/utils/types'
 export type { ProviderID }
 
+export interface ModelInfo {
+  id: string
+  label: string
+  isFree?: boolean
+  contextLength?: number
+  maxOutput?: number
+}
+
 export interface LLMProvider {
   name: string
   call(system: string, userPrompt: string, maxTokens: number): Promise<string>
   test(): Promise<{ ok: boolean; error?: string }>
+  /** Providers that expose a live model catalog implement this. */
+  listModels?(): Promise<ModelInfo[]>
 }
 
 export interface ModelLimits {
@@ -73,10 +83,9 @@ export const PROVIDER_CONFIGS: Record<ProviderID, ProviderConfig> = {
     name: 'OpenRouter',
     requiresKey: true,
     keyPlaceholder: 'sk-or-...',
-    defaultModel: 'google/gemma-4-31b-it:free',
+    defaultModel: 'google/gemma-3-27b-it:free',
     models: [
-      // ── Free models (verified on OpenRouter) ──
-      'google/gemma-4-31b-it:free',
+      // ── Free models (fallback — UI fetches the live catalog) ──
       'google/gemma-3-27b-it:free',
       'nvidia/nemotron-3-super-120b-a12b:free',
       'meta-llama/llama-3.3-70b-instruct:free',
@@ -106,7 +115,6 @@ export const PROVIDER_CONFIGS: Record<ProviderID, ProviderConfig> = {
     helpUrl: 'https://openrouter.ai/keys',
     modelLimits: {
       // Free models
-      'google/gemma-4-31b-it:free':                  { contextTokens: 128_000,   maxOutputTokens: 8_192 },
       'google/gemma-3-27b-it:free':                  { contextTokens: 96_000,    maxOutputTokens: 8_192 },
       'nvidia/nemotron-3-super-120b-a12b:free':      { contextTokens: 128_000,   maxOutputTokens: 16_384 },
       'meta-llama/llama-3.3-70b-instruct:free':      { contextTokens: 128_000,   maxOutputTokens: 16_384 },

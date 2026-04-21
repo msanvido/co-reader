@@ -23,13 +23,15 @@ import type { LLMProvider } from './providers'
 let _cachedProvider: LLMProvider | null = null
 let _cachedLimits: { contextTokens: number; maxOutputTokens: number } | null = null
 let _cacheExpiry = 0
+let _cacheKey = ''
 
 async function getCachedProviderAndLimits() {
   const now = Date.now()
-  if (_cachedProvider && _cachedLimits && now < _cacheExpiry) {
+  const settings = await getSettings()
+  const key = `${settings.provider}|${settings.model}|${settings.apiKey}`
+  if (_cachedProvider && _cachedLimits && now < _cacheExpiry && _cacheKey === key) {
     return { provider: _cachedProvider, limits: _cachedLimits }
   }
-  const settings = await getSettings()
   if (settings.provider !== 'chrome-nano' && settings.provider !== 'in-browser' && !settings.apiKey) {
     throw new Error('No API key configured. Open Settings to add one.')
   }
@@ -37,6 +39,7 @@ async function getCachedProviderAndLimits() {
   _cachedProvider = createProvider(settings.provider, settings.apiKey, settings.model)
   _cachedLimits = getModelLimits(settings.provider, settings.model)
   _cacheExpiry = now + 30_000 // 30s TTL — covers a full analysis batch
+  _cacheKey = key
   return { provider: _cachedProvider, limits: _cachedLimits }
 }
 

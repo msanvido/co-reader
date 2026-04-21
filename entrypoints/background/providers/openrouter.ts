@@ -1,6 +1,7 @@
-import type { LLMProvider } from './types'
+import type { LLMProvider, ModelInfo } from './types'
 
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const MODELS_URL = 'https://openrouter.ai/api/v1/models'
 const MAX_RETRIES = 3
 
 export function createOpenRouterProvider(apiKey: string, model: string): LLMProvider {
@@ -54,6 +55,7 @@ export function createOpenRouterProvider(apiKey: string, model: string): LLMProv
     },
 
     async test() {
+      if (!apiKey) return { ok: false, error: 'No API key' }
       try {
         // Validate key without making an LLM call — just check auth
         const resp = await fetch('https://openrouter.ai/api/v1/auth/key', {
@@ -66,6 +68,25 @@ export function createOpenRouterProvider(apiKey: string, model: string): LLMProv
       } catch (e) {
         return { ok: false, error: String(e) }
       }
+    },
+
+    async listModels(): Promise<ModelInfo[]> {
+      // /models is a public endpoint — no auth required
+      const resp = await fetch(MODELS_URL)
+      if (!resp.ok) throw new Error(`OpenRouter models fetch failed (${resp.status})`)
+      const data = await resp.json()
+      const rows: any[] = Array.isArray(data?.data) ? data.data : []
+      return rows
+        .filter(m => typeof m.id === 'string')
+        .map(m => ({
+          id: m.id as string,
+          label: (m.name as string) || (m.id as string),
+          isFree: (m.id as string).endsWith(':free'),
+          contextLength: typeof m.context_length === 'number' ? m.context_length : undefined,
+          maxOutput: typeof m?.top_provider?.max_completion_tokens === 'number'
+            ? m.top_provider.max_completion_tokens
+            : undefined,
+        }))
     },
   }
 }
