@@ -2,6 +2,7 @@ import { TOOLTIP_CLASS, ROLE_COLORS, ROLE_LABELS, RELATIONSHIP_ARROWS, RELATIONS
 import type { MicroSummaryResponse, CrossReference } from '@/utils/types'
 import { getElementById } from './paragraph-detector'
 import { pulseElement } from './highlight-injector'
+import { escapeHtml } from '@/utils/text-utils'
 
 // ─── Tooltip element ──────────────────────────────────────────────────────────
 
