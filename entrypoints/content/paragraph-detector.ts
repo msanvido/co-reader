@@ -37,8 +37,9 @@ export function buildParagraphRegistry(): void {
 
   // Collect exclusion elements
   const excluded = new Set<Element>()
-  for (const sel of adapter.exclusionSelectors) {
-    container.querySelectorAll(sel).forEach(el => {
+  if (adapter.exclusionSelectors.length > 0) {
+    const combinedExclusions = adapter.exclusionSelectors.join(', ')
+    container.querySelectorAll(combinedExclusions).forEach(el => {
       // Mark this element and all descendants as excluded
       el.querySelectorAll('*').forEach(d => excluded.add(d))
       excluded.add(el)
@@ -51,8 +52,9 @@ export function buildParagraphRegistry(): void {
     '[role="navigation"]', '[role="banner"]', '[role="complementary"]',
     'script', 'style', 'noscript',
   ]
-  for (const sel of globalExclusions) {
-    document.querySelectorAll(sel).forEach(el => {
+  if (globalExclusions.length > 0) {
+    const combinedGlobalExclusions = globalExclusions.join(', ')
+    document.querySelectorAll(combinedGlobalExclusions).forEach(el => {
       el.querySelectorAll('*').forEach(d => excluded.add(d))
       excluded.add(el)
     })
