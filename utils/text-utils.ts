@@ -189,3 +189,14 @@ function repairJson(json: string): string {
 
   return s
 }
+
+// ─── Security ─────────────────────────────────────────────────────────────────
+
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}

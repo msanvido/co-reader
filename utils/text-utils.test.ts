@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { truncateToTokens, countWords, hashString } from './text-utils'
+import { truncateToTokens, countWords, hashString, escapeHtml } from './text-utils'
 
 describe('truncateToTokens', () => {
   it('returns the same text if it is shorter than the max tokens', () => {
@@ -69,5 +69,21 @@ describe('hashString', () => {
 
   it('returns a string', () => {
     expect(typeof hashString('test')).toBe('string')
+  })
+})
+
+describe('escapeHtml', () => {
+  it('escapes &, <, >, ", and \'', () => {
+    expect(escapeHtml('&')).toBe('&amp;')
+    expect(escapeHtml('<')).toBe('&lt;')
+    expect(escapeHtml('>')).toBe('&gt;')
+    expect(escapeHtml('"')).toBe('&quot;')
+    expect(escapeHtml('\'')).toBe('&#039;')
+  })
+
+  it('escapes a complex string', () => {
+    const input = '<script>alert("XSS & \'attack\'")</script>'
+    const expected = '&lt;script&gt;alert(&quot;XSS &amp; &#039;attack&#039;&quot;)&lt;/script&gt;'
+    expect(escapeHtml(input)).toBe(expected)
   })
 })

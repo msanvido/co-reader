@@ -2,6 +2,7 @@ import { TOOLTIP_CLASS, ROLE_COLORS, ROLE_LABELS, RELATIONSHIP_ARROWS, RELATIONS
 import type { MicroSummaryResponse, CrossReference } from '@/utils/types'
 import { getElementById } from './paragraph-detector'
 import { pulseElement } from './highlight-injector'
+import { escapeHtml } from '@/utils/text-utils'
 
 // ─── Tooltip element ──────────────────────────────────────────────────────────
 
@@ -133,13 +134,3 @@ function positionTooltip(tooltip: HTMLElement, anchor: Element): void {
   tooltip.style.left = `${left}px`
 }
 
-// ─── Utility ──────────────────────────────────────────────────────────────────
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-}
