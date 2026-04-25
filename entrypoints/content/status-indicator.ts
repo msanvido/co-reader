@@ -15,13 +15,23 @@ export function showPageStatus(color: string, text: string): void {
     document.body.appendChild(el)
   }
 
-  el.innerHTML = `
-    <span style="
-      display:inline-block;width:10px;height:10px;border-radius:50%;
-      background:${escapeHtml(color)};box-shadow:0 0 6px ${escapeHtml(color)};flex-shrink:0;
-    "></span>
-    <span style="color:#ccc;font-size:12px">${escapeHtml(text)}</span>
-  `
+  // Clear existing content to prevent appending duplicates
+  el.textContent = ''
+
+  // Create color dot
+  const dotSpan = document.createElement('span')
+  dotSpan.style.cssText = 'display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;'
+  dotSpan.style.background = escapeHtml(color)
+  dotSpan.style.boxShadow = `0 0 6px ${escapeHtml(color)}`
+
+  // Create text container
+  const textSpan = document.createElement('span')
+  textSpan.style.cssText = 'color:#ccc;font-size:12px'
+  textSpan.textContent = text // Automatically escapes text content, preventing XSS
+
+  el.appendChild(dotSpan)
+  el.appendChild(textSpan)
+
   el.setAttribute('style', `
     position:fixed;bottom:16px;left:16px;z-index:2147483646;
     display:flex;align-items:center;gap:8px;
