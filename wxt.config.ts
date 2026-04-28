@@ -13,6 +13,8 @@ export default defineConfig({
       'https://openrouter.ai/*',
       'https://huggingface.co/*',
       'https://cdn.jsdelivr.net/*',
+      // PDF fetching from any HTTPS host
+      'https://*/*',
     ],
     content_security_policy: {
       extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",

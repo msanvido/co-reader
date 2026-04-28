@@ -16,6 +16,8 @@ import { COMPRESSION_CONFIGS } from '@/utils/compression-prompts'
 import { isMissingApiKey } from '@/utils/api-key-check'
 import { useProviderModels } from '@/utils/use-provider-models'
 import { ControlBar } from './ControlBar'
+import { usePdfMode, runPdfAnalysis } from './pdf-mode'
+import type { FullPageAnalysisResponse } from '@/utils/types'
 
 interface ParagraphData {
   id: string; role: string; summary: string; originalText: string
@@ -85,6 +87,31 @@ async function sendToTab(msg: any): Promise<any> {
   try { return await chrome.tabs.sendMessage(tab.id, msg) } catch { return null }
 }
 
+function pdfResponseToAnalysisData(
+  resp: FullPageAnalysisResponse,
+  paragraphs: Array<{ id: string; section: string; text: string }>,
+): AnalysisData {
+  const textById = new Map(paragraphs.map(p => [p.id, p.text]))
+  const sections: SectionData[] = (resp.sections ?? []).map(s => ({
+    title: s.title ?? '',
+    summary: s.sectionSummary ?? '',
+    paragraphs: (s.paragraphs ?? []).map(p => ({
+      id: p.id,
+      role: p.role ?? 'UNKNOWN',
+      summary: p.summary ?? '',
+      originalText: textById.get(p.id) ?? '',
+      highlights: p.highlights ?? [],
+      crossReferences: p.crossReferences ?? [],
+    })),
+  }))
+  return {
+    thesis: resp.thesis ?? '',
+    keyTerms: resp.keyTerms ?? [],
+    sections,
+    allParagraphs: sections.flatMap(s => s.paragraphs),
+  }
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export function App() {
@@ -111,6 +138,8 @@ export function App() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const paraRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const dataRef = useRef<AnalysisData | null>(null)
+
+  const { pdfMode, pdfUrl } = usePdfMode()
 
   // Keep ref and state in sync
   function setActiveParaId(id: string | null) {
@@ -189,6 +218,7 @@ export function App() {
   }
 
   async function pollStatus() {
+    if (pdfMode) return // status managed locally in PDF mode
     const s = await sendToTab({ type: 'GET_STATUS' })
     if (s) {
       setStatus(s)
@@ -202,6 +232,7 @@ export function App() {
   }
 
   async function handleStart() {
+    if (pdfMode && pdfUrl) return runPdfFlow(pdfUrl)
     setData(null)
     await sendToTab({ type: 'START_ANALYSIS' })
     if (pollRef.current) clearInterval(pollRef.current)
@@ -209,8 +240,36 @@ export function App() {
   }
 
   async function handleStop() {
+    if (pdfMode) return // single-shot, can't stop mid-flight cleanly
     await sendToTab({ type: 'STOP_ANALYSIS' })
     pollStatus()
+  }
+
+  async function runPdfFlow(url: string) {
+    setData(null)
+    setStatus({ state: 'running', message: 'Loading PDF…', paragraphsFound: 0, paragraphsAnalyzed: 0 })
+
+    const settings = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }).catch(() => null)
+    const technique = settings?.compressionTechnique ?? 'abstractive'
+
+    const result = await runPdfAnalysis(url, technique, (msg) =>
+      setStatus(s => ({ ...s, message: msg, paragraphsFound: Math.max(s.paragraphsFound, 0) }))
+    )
+
+    if (!result.ok || !result.data) {
+      setStatus({ state: 'error', message: result.error ?? 'PDF analysis failed', paragraphsFound: 0, paragraphsAnalyzed: 0 })
+      return
+    }
+
+    const analysis = pdfResponseToAnalysisData(result.data, result.paragraphs)
+    setData(analysis)
+    dataRef.current = analysis
+    setStatus({
+      state: 'done',
+      message: `${result.paragraphs.length} paragraphs analyzed`,
+      paragraphsFound: result.paragraphs.length,
+      paragraphsAnalyzed: result.paragraphs.length,
+    })
   }
 
   function selectParagraph(paraId: string) {
@@ -238,7 +297,12 @@ export function App() {
           {downloadMsg && (
             <div class="download-banner">{downloadMsg}</div>
           )}
-          <ControlBar status={status} onStart={handleStart} onStop={handleStop} missingApiKey={missingApiKey} />
+          <ControlBar
+            status={pdfMode ? { ...status, paragraphsFound: status.paragraphsFound || 1 } : status}
+            onStart={handleStart}
+            onStop={handleStop}
+            missingApiKey={missingApiKey}
+          />
 
           {data && (
             <div class="reading-guide">
@@ -325,14 +389,18 @@ export function App() {
           {!data && status.state !== 'running' && (
             <div class="panel-empty">
               <p class="panel-empty-title">
-                {status.paragraphsFound > 0
-                  ? `${status.paragraphsFound} paragraphs detected`
-                  : 'Navigate to an article'}
+                {pdfMode
+                  ? 'PDF detected'
+                  : status.paragraphsFound > 0
+                    ? `${status.paragraphsFound} paragraphs detected`
+                    : 'Navigate to an article'}
               </p>
               <p class="panel-empty-desc">
-                {status.paragraphsFound > 0
-                  ? 'Click "Start" to analyze.'
-                  : 'Open an article, then click "Start".'}
+                {pdfMode
+                  ? 'Click "Start" to fetch and analyze the PDF.'
+                  : status.paragraphsFound > 0
+                    ? 'Click "Start" to analyze.'
+                    : 'Open an article, then click "Start".'}
               </p>
             </div>
           )}
