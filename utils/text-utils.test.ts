@@ -33,6 +33,30 @@ describe('truncateToTokens', () => {
     expect(truncateToTokens(text, 1000000)).toBe(text)
   })
 
+  it('handles fractional maxTokens by scaling to chars', () => {
+    const text = 'Hello'
+    // maxTokens = 0.5 => maxChars = 2. 'Hello' -> 'He…'
+    expect(truncateToTokens(text, 0.5)).toBe('He…')
+  })
+
+  it('handles negative maxTokens (slices from end)', () => {
+    const text = 'Hello World'
+    // maxTokens = -1 => maxChars = -4. text.slice(0, -4) -> 'Hello W'
+    expect(truncateToTokens(text, -1)).toBe('Hello W…')
+  })
+
+  it('handles NaN maxTokens', () => {
+    const text = 'Hello'
+    // NaN * 4 = NaN. length <= NaN is false. slice(0, NaN) is slice(0, 0)
+    expect(truncateToTokens(text, NaN)).toBe('…')
+  })
+
+  it('handles Infinity maxTokens', () => {
+    const text = 'Hello'
+    // Infinity * 4 = Infinity. length <= Infinity is true
+    expect(truncateToTokens(text, Infinity)).toBe(text)
+  })
+
   it('handles multi-byte characters correctly (surrogate pairs)', () => {
     // Each emoji here is 2 UTF-16 code units. Total length = 8.
     const text = '😀😃😄😁'
