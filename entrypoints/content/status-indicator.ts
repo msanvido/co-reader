@@ -3,8 +3,6 @@
  * Shows a colored dot + text in the bottom-left corner.
  */
 
-import { escapeHtml } from '@/utils/text-utils'
-
 const ID = 'cr-page-status'
 
 export function showPageStatus(color: string, text: string): void {
@@ -15,13 +13,22 @@ export function showPageStatus(color: string, text: string): void {
     document.body.appendChild(el)
   }
 
-  el.innerHTML = `
-    <span style="
-      display:inline-block;width:10px;height:10px;border-radius:50%;
-      background:${escapeHtml(color)};box-shadow:0 0 6px ${escapeHtml(color)};flex-shrink:0;
-    "></span>
-    <span style="color:#ccc;font-size:12px">${escapeHtml(text)}</span>
-  `
+  // Clear existing content securely
+  el.textContent = ''
+
+  const dot = document.createElement('span')
+  // Use cssText to set styles cleanly without string interpolation risks for basic colors
+  dot.style.cssText = `display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;`
+  dot.style.backgroundColor = color
+  dot.style.boxShadow = `0 0 6px ${color}`
+
+  const textSpan = document.createElement('span')
+  textSpan.style.cssText = 'color:#ccc;font-size:12px'
+  textSpan.textContent = text
+
+  el.appendChild(dot)
+  el.appendChild(textSpan)
+
   el.setAttribute('style', `
     position:fixed;bottom:16px;left:16px;z-index:2147483646;
     display:flex;align-items:center;gap:8px;
