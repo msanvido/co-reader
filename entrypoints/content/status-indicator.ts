@@ -3,8 +3,6 @@
  * Shows a colored dot + text in the bottom-left corner.
  */
 
-import { escapeHtml } from '@/utils/text-utils'
-
 const ID = 'cr-page-status'
 
 export function showPageStatus(color: string, text: string): void {
@@ -15,23 +13,37 @@ export function showPageStatus(color: string, text: string): void {
     document.body.appendChild(el)
   }
 
-  el.innerHTML = `
-    <span style="
-      display:inline-block;width:10px;height:10px;border-radius:50%;
-      background:${escapeHtml(color)};box-shadow:0 0 6px ${escapeHtml(color)};flex-shrink:0;
-    "></span>
-    <span style="color:#ccc;font-size:12px">${escapeHtml(text)}</span>
-  `
-  el.setAttribute('style', `
-    position:fixed;bottom:16px;left:16px;z-index:2147483646;
-    display:flex;align-items:center;gap:8px;
-    background:rgba(28,28,30,0.92);backdrop-filter:blur(8px);
-    padding:6px 12px;border-radius:20px;
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-    box-shadow:0 2px 12px rgba(0,0,0,0.4);
-    border:1px solid rgba(255,255,255,0.08);
-    transition:opacity 0.3s;
-  `)
+  const dot = document.createElement('span')
+  dot.style.display = 'inline-block'
+  dot.style.width = '10px'
+  dot.style.height = '10px'
+  dot.style.borderRadius = '50%'
+  dot.style.background = color
+  dot.style.boxShadow = `0 0 6px ${color}`
+  dot.style.flexShrink = '0'
+
+  const label = document.createElement('span')
+  label.style.color = '#ccc'
+  label.style.fontSize = '12px'
+  label.textContent = text
+
+  el.replaceChildren(dot, label)
+
+  el.style.position = 'fixed'
+  el.style.bottom = '16px'
+  el.style.left = '16px'
+  el.style.zIndex = '2147483646'
+  el.style.display = 'flex'
+  el.style.alignItems = 'center'
+  el.style.gap = '8px'
+  el.style.background = 'rgba(28,28,30,0.92)'
+  el.style.backdropFilter = 'blur(8px)'
+  el.style.padding = '6px 12px'
+  el.style.borderRadius = '20px'
+  el.style.fontFamily = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+  el.style.boxShadow = '0 2px 12px rgba(0,0,0,0.4)'
+  el.style.border = '1px solid rgba(255,255,255,0.08)'
+  el.style.transition = 'opacity 0.3s'
 }
 
 export function hidePageStatus(): void {
