@@ -11,7 +11,7 @@ export function createOpenRouterProvider(apiKey: string, model: string): LLMProv
     async call(system, userPrompt, maxTokens) {
       const trimmedKey = (apiKey ?? '').trim()
       if (!trimmedKey) throw new Error('No OpenRouter API key. Go to Settings and add one (free at openrouter.ai/keys).')
-      console.log(`[co-reader] OpenRouter call — model=${model}, key length=${trimmedKey.length}, prefix=${trimmedKey.slice(0, 8)}`)
+      console.log(`[co-reader] OpenRouter call — model=${model}, key length=${trimmedKey.length}`)
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         const response = await fetch(API_URL, {
           method: 'POST',
