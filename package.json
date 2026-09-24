@@ -6,9 +6,11 @@
   "type": "module",
   "scripts": {
     "copy-ort": "mkdir -p public/ort && cp node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.asyncify.* node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.* public/ort/",
-    "dev": "npm run copy-ort && wxt",
-    "build": "npm run copy-ort && wxt build",
-    "zip": "npm run copy-ort && wxt zip",
+    "copy-wllama": "mkdir -p public/wllama && cp node_modules/@wllama/wllama/esm/wasm/wllama.wasm public/wllama/",
+    "copy-assets": "npm run copy-ort && npm run copy-wllama",
+    "dev": "npm run copy-assets && wxt",
+    "build": "npm run copy-assets && wxt build",
+    "zip": "npm run copy-assets && wxt zip",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
@@ -17,11 +19,15 @@
   "dependencies": {
     "@huggingface/transformers": "^4.0.1",
     "@preact/signals": "^1.3.2",
+    "@wllama/wllama": "^3.6.1",
     "preact": "^10.25.4"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/preact": "^3.2.4",
+    "@types/chrome": "^0.3.0",
+    "@types/jsdom": "^30.0.0",
+    "@webgpu/types": "^0.1.74",
     "jsdom": "^29.0.2",
     "typescript": "^5.7.3",
     "vitest": "^4.1.4",

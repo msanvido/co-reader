@@ -60,6 +60,7 @@ Click the co-reader icon in the toolbar to open the side panel, then click **⚙
 | OpenRouter | [openrouter.ai/keys](https://openrouter.ai/keys) |
 | In-Browser Chrome Native | No key needed — see [Gemini Nano setup](#run-entirely-in-your-browser-with-gemini-nano) |
 | In-Browser (Gemma) | No key needed — see [Gemma setup](#run-gemma-4-locally-with-transformersjs) |
+| In-Browser (Wllama) | No key needed — see [llama.cpp / Wllama setup](#run-locally-with-wllama-webassembly-port-of-llamacpp) |
 
 ### Run entirely in your browser
 
@@ -103,6 +104,22 @@ Select "In-Browser (Gemma)" as the provider and pick a model:
 - Inference is slower than cloud APIs — expect 10-30 seconds per chunk depending on GPU
 - WebGPU must be available and your GPU must support f16 shaders
 
+### Run locally with Wllama (WebAssembly port of llama.cpp)
+
+co-reader can run GGUF models directly in your browser using [@wllama/wllama](https://github.com/ngxson/wllama), the WebAssembly port of [llama.cpp](https://github.com/ggerganov/llama.cpp). Models execute via WebAssembly SIMD and WebGPU without requiring any API keys or external servers.
+
+**Available Models:**
+- **qwen2.5-0.5b** — ~398 MB download, fast and high-quality default
+- **llama-3.2-1b** — ~800 MB download, Meta's lightweight instruction model
+- **smollm2-360m** — ~387 MB download, ultra-compact
+- **qwen2.5-1.5b** — ~986 MB download, advanced reasoning
+- **smollm2-1.7b** — ~1.06 GB download, larger SmolLM2 model
+
+**Features:**
+- Zero server dependencies — models run 100% locally
+- First run downloads GGUF weights directly from HuggingFace and caches them in browser storage
+- Automatically leverages CPU WebAssembly SIMD and hardware WebGPU acceleration when available
+
 ## Supported sites
 
 co-reader works on any site that uses standard HTML paragraph elements (`<p>` tags), which covers the vast majority of blogs, news sites, and documentation. This includes Anthropic, OpenAI, Google, GitHub, Substack, HackerNoon, Ars Technica, and most WordPress/Ghost sites.
@@ -141,7 +158,12 @@ co-reader/
 │   │       ├── openai.ts
 │   │       ├── gemini.ts
 │   │       ├── openrouter.ts
-│   │       └── chrome-nano.ts
+│   │       ├── chrome-nano.ts
+│   │       ├── in-browser.ts      # transformers.js (Gemma)
+│   │       └── wllama.ts          # @wllama/wllama (llama.cpp)
+│   ├── offscreen/                 # Offscreen document: WebAssembly & WebGPU inference
+│   │   ├── index.html
+│   │   └── main.ts
 │   ├── content/                   # Content script: paragraph detection, highlights
 │   │   ├── index.ts
 │   │   ├── paragraph-detector.ts

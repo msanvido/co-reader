@@ -497,6 +497,23 @@ function SettingsPanel() {
         </div>
       )}
 
+      {settings.provider === 'wllama' && (
+        <div class="nano-help">
+          <strong>In-Browser llama.cpp (Wllama)</strong>
+          <p>Runs entirely on-device via WebAssembly and WebGPU using llama.cpp — no API key, no data sent to any server.</p>
+          <p>The GGUF model is <strong>downloaded once</strong> from HuggingFace on first use and cached in browser storage. Subsequent runs load from cache.</p>
+          <p><strong>Available Models:</strong></p>
+          <ul>
+            <li><strong>Qwen 2.5 0.5B</strong> (~398 MB) — fast, high quality lightweight default</li>
+            <li><strong>Llama 3.2 1B</strong> (~800 MB) — official Meta Llama lightweight model</li>
+            <li><strong>SmolLM2 360M</strong> (~387 MB) — compact & fast</li>
+            <li><strong>Qwen 2.5 1.5B</strong> (~986 MB) — strong reasoning</li>
+            <li><strong>SmolLM2 1.7B</strong> (~1.06 GB) — larger SmolLM2 model</li>
+          </ul>
+          <p>Note: First run downloads weights from HuggingFace. Runs via CPU WebAssembly SIMD and WebGPU.</p>
+        </div>
+      )}
+
       {settings.provider === 'chrome-nano' && (
         <div class="nano-help">
           <strong>In-Browser Chrome Native (Gemini Nano)</strong>

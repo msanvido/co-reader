@@ -171,6 +171,28 @@ export const PROVIDER_CONFIGS: Record<ProviderID, ProviderConfig> = {
       'gemma-4-e4b': { contextTokens: 8_192, maxOutputTokens: 2_048 },
     },
   },
+  'wllama': {
+    id: 'wllama',
+    name: 'In-Browser (Wllama / llama.cpp)',
+    requiresKey: false,
+    keyPlaceholder: '',
+    defaultModel: 'qwen2.5-0.5b',
+    models: [
+      'qwen2.5-0.5b',
+      'llama-3.2-1b',
+      'smollm2-360m',
+      'qwen2.5-1.5b',
+      'smollm2-1.7b',
+    ],
+    helpUrl: 'https://github.com/ngxson/wllama',
+    modelLimits: {
+      'qwen2.5-0.5b': { contextTokens: 4_096, maxOutputTokens: 2_048 },
+      'llama-3.2-1b': { contextTokens: 4_096, maxOutputTokens: 2_048 },
+      'smollm2-360m': { contextTokens: 4_096, maxOutputTokens: 2_048 },
+      'qwen2.5-1.5b': { contextTokens: 4_096, maxOutputTokens: 2_048 },
+      'smollm2-1.7b': { contextTokens: 4_096, maxOutputTokens: 2_048 },
+    },
+  },
 }
 
 /** Get limits for a specific provider+model combo, with sensible defaults */

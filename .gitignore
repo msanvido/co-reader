@@ -4,6 +4,7 @@ output/
 .wxt/
 *.zip
 public/ort/
+public/wllama/
 .DS_Store
 .env
 .claude/

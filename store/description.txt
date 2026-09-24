@@ -24,6 +24,7 @@ co-reader has no backend. Your API key stays in your browser. Choose your LLM:
 • OpenAI (GPT-4o, GPT-4.1)
 • Google Gemini
 • OpenRouter (access to 100+ models)
+• In-browser llama.cpp / Wllama & Gemma (100% on-device, free)
 • Chrome Built-in AI / Gemini Nano (free, on-device, beta)
 
 PRIVACY

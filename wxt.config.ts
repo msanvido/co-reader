@@ -12,6 +12,7 @@ export default defineConfig({
       'https://generativelanguage.googleapis.com/*',
       'https://openrouter.ai/*',
       'https://huggingface.co/*',
+      'https://*.hf.co/*',
       'https://cdn.jsdelivr.net/*',
     ],
     content_security_policy: {

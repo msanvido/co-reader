@@ -30,6 +30,10 @@ describe('isMissingApiKey', () => {
     expect(isMissingApiKey('in-browser', '')).toBe(false)
   })
 
+  it('returns false for wllama regardless of key', () => {
+    expect(isMissingApiKey('wllama', '')).toBe(false)
+  })
+
   it('treats whitespace-only key as missing', () => {
     expect(isMissingApiKey('anthropic', '   ')).toBe(true)
   })
@@ -54,6 +58,7 @@ describe('apiKeyErrorMessage', () => {
   it('returns empty string for keyless providers', () => {
     expect(apiKeyErrorMessage('chrome-nano')).toBe('')
     expect(apiKeyErrorMessage('in-browser')).toBe('')
+    expect(apiKeyErrorMessage('wllama')).toBe('')
   })
 
   it('returns empty string for unknown provider', () => {

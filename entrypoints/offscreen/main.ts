@@ -1,7 +1,9 @@
 /**
- * Offscreen document that hosts a local Gemma model via transformers.js.
+ * Offscreen document that hosts local LLM inference via:
+ * 1. transformers.js with WebGPU (Gemma)
+ * 2. @wllama/wllama with WebAssembly & WebGPU (llama.cpp)
  *
- * WebGPU is only available in document contexts (not service workers),
+ * Web Workers and WebGPU are only available in document contexts (not service workers),
  * so the background script creates this offscreen document and
  * communicates via chrome.runtime messages.
  */
@@ -11,14 +13,17 @@ import {
   TextStreamer,
   env,
 } from '@huggingface/transformers'
+import { Wllama } from '@wllama/wllama'
 
 // Don't look for local model files — always fetch from HuggingFace Hub
 env.allowLocalModels = false
 
 // Load ONNX runtime WASM from bundled extension files (CDN is blocked by MV3 CSP)
-env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('ort/')
+if (env.backends?.onnx?.wasm) {
+  env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('ort/')
+}
 
-// ── Model state ─────────────────────────────────────────────────────────────
+// ── Gemma Model state ────────────────────────────────────────────────────────
 
 let model: InstanceType<typeof Gemma4ForConditionalGeneration> | null = null
 let processor: Awaited<ReturnType<typeof AutoProcessor.from_pretrained>> | null = null
@@ -28,6 +33,40 @@ const MODEL_MAP: Record<string, string> = {
   'gemma-4-e2b': 'onnx-community/gemma-4-E2B-it-ONNX',
   'gemma-4-e4b': 'onnx-community/gemma-4-E4B-it-ONNX',
 }
+
+// ── Wllama Model state ───────────────────────────────────────────────────────
+
+interface WllamaModelDef {
+  repo: string
+  file?: string
+  quant?: string
+}
+
+const WLLAMA_MODEL_MAP: Record<string, WllamaModelDef> = {
+  'qwen2.5-0.5b': {
+    repo: 'Qwen/Qwen2.5-0.5B-Instruct-GGUF',
+    file: 'qwen2.5-0.5b-instruct-q4_k_m.gguf',
+  },
+  'llama-3.2-1b': {
+    repo: 'bartowski/Llama-3.2-1B-Instruct-GGUF',
+    file: 'Llama-3.2-1B-Instruct-Q4_K_M.gguf',
+  },
+  'smollm2-360m': {
+    repo: 'HuggingFaceTB/SmolLM2-360M-Instruct-GGUF',
+    file: 'smollm2-360m-instruct-q8_0.gguf',
+  },
+  'qwen2.5-1.5b': {
+    repo: 'Qwen/Qwen2.5-1.5B-Instruct-GGUF',
+    file: 'qwen2.5-1.5b-instruct-q4_k_m.gguf',
+  },
+  'smollm2-1.7b': {
+    repo: 'HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF',
+    file: 'smollm2-1.7b-instruct-q4_k_m.gguf',
+  },
+}
+
+let wllamaInstance: Wllama | null = null
+let loadedWllamaModel: string | null = null
 
 // ── Message handler ─────────────────────────────────────────────────────────
 
@@ -47,6 +86,10 @@ async function handleMessage(msg: any): Promise<any> {
       return checkGPU()
     case 'generate':
       return generate(msg.model, msg.system, msg.userPrompt, msg.maxTokens)
+    case 'wllama-test':
+      return checkWllama()
+    case 'wllama-generate':
+      return wllamaGenerate(msg.model, msg.system, msg.userPrompt, msg.maxTokens)
     default:
       return { ok: false, error: `Unknown action: ${msg.action}` }
   }
@@ -65,7 +108,25 @@ async function checkGPU(): Promise<{ ok: boolean; error?: string }> {
   return { ok: true }
 }
 
-// ── Model loading ───────────────────────────────────────────────────────────
+// ── Wllama environment check ────────────────────────────────────────────────
+
+async function checkWllama(): Promise<{ ok: boolean; error?: string }> {
+  if (typeof WebAssembly === 'undefined') {
+    return { ok: false, error: 'WebAssembly is not supported in this browser.' }
+  }
+  try {
+    const wasmUrl = chrome.runtime.getURL('wllama/wllama.wasm')
+    const res = await fetch(wasmUrl, { method: 'HEAD' })
+    if (!res.ok) {
+      return { ok: false, error: `wllama.wasm binary not found in extension bundle (${res.status})` }
+    }
+  } catch (e) {
+    return { ok: false, error: `Failed to locate wllama.wasm: ${String(e)}` }
+  }
+  return { ok: true }
+}
+
+// ── Progress notification ───────────────────────────────────────────────────
 
 /** Send a progress update to all extension contexts (side panel, background) */
 function sendProgress(message: string, percent: number) {
@@ -76,17 +137,30 @@ function sendProgress(message: string, percent: number) {
   }).catch(() => {}) // ignore if no listeners
 }
 
+// ── Gemma Model loading ──────────────────────────────────────────────────────
+
 async function ensureModel(modelKey: string): Promise<void> {
   const hfId = MODEL_MAP[modelKey]
   if (!hfId) throw new Error(`Unknown model: ${modelKey}`)
   if (loadedHfId === hfId && model && processor) return
 
-  // Dispose previous model if switching
+  // Dispose previous Gemma model if switching
   if (model) {
     await (model as any).dispose()
     model = null
     processor = null
     loadedHfId = null
+  }
+
+  // Dispose Wllama if loaded to avoid keeping two models in memory
+  if (wllamaInstance) {
+    try {
+      await wllamaInstance.exit()
+    } catch (e) {
+      console.warn('[co-reader] Failed to exit wllama when switching to Gemma:', e)
+    }
+    wllamaInstance = null
+    loadedWllamaModel = null
   }
 
   sendProgress('Downloading model (first run only)...', 0)
@@ -119,6 +193,83 @@ async function ensureModel(modelKey: string): Promise<void> {
   loadedHfId = hfId
 
   sendProgress('Model ready', -1) // -1 signals "done"
+}
+
+// ── Wllama Model loading ────────────────────────────────────────────────────
+
+async function ensureWllamaModel(modelKey: string): Promise<Wllama> {
+  const modelDef = WLLAMA_MODEL_MAP[modelKey]
+  if (!modelDef && !modelKey.includes('/')) {
+    throw new Error(`Unknown Wllama model: ${modelKey}`)
+  }
+
+  if (loadedWllamaModel === modelKey && wllamaInstance && wllamaInstance.isModelLoaded()) {
+    return wllamaInstance
+  }
+
+  // Dispose Gemma model if loaded to free memory
+  if (model) {
+    try {
+      await (model as any).dispose()
+    } catch (e) {
+      console.warn('[co-reader] Failed to dispose Gemma model:', e)
+    }
+    model = null
+    processor = null
+    loadedHfId = null
+  }
+
+  // Dispose previous Wllama instance if model changed
+  if (wllamaInstance) {
+    try {
+      await wllamaInstance.exit()
+    } catch (e) {
+      console.warn('[co-reader] Failed to exit previous wllama:', e)
+    }
+    wllamaInstance = null
+    loadedWllamaModel = null
+  }
+
+  sendProgress('Initializing Wllama runtime...', 0)
+
+  const configPaths = {
+    default: chrome.runtime.getURL('wllama/wllama.wasm'),
+  }
+
+  const wllama = new Wllama(configPaths, {
+    suppressNativeLog: false,
+    parallelDownloads: 3,
+  })
+
+  sendProgress('Downloading model (first run only)...', 0)
+
+  const progressCallback = ({ loaded, total }: { loaded: number; total: number }) => {
+    if (total > 0) {
+      const pct = Math.round((loaded / total) * 100)
+      sendProgress(`Downloading model... ${pct}%`, pct)
+    }
+  }
+
+  const target = modelDef ?? { repo: modelKey }
+
+  await wllama.loadModelFromHF(
+    {
+      repo: target.repo,
+      file: target.file,
+      quant: target.quant,
+    },
+    {
+      progressCallback,
+      n_ctx: 4096,
+      n_threads: Math.min(4, navigator.hardwareConcurrency || 4),
+    }
+  )
+
+  wllamaInstance = wllama
+  loadedWllamaModel = modelKey
+
+  sendProgress('Model ready', -1)
+  return wllama
 }
 
 // ── Text generation ─────────────────────────────────────────────────────────
@@ -157,6 +308,31 @@ async function generate(
     })
 
     return { ok: true, text: result.trim() }
+  } catch (err) {
+    return { ok: false, error: String(err) }
+  }
+}
+
+async function wllamaGenerate(
+  modelKey: string,
+  system: string,
+  userPrompt: string,
+  maxTokens: number,
+): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+  try {
+    const wllama = await ensureWllamaModel(modelKey)
+
+    const response = await wllama.createChatCompletion({
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: maxTokens,
+      temperature: 0.2,
+    })
+
+    const text = response.choices?.[0]?.message?.content ?? ''
+    return { ok: true, text: text.trim() }
   } catch (err) {
     return { ok: false, error: String(err) }
   }

@@ -32,7 +32,7 @@ async function getCachedProviderAndLimits() {
   if (_cachedProvider && _cachedLimits && now < _cacheExpiry && _cacheKey === key) {
     return { provider: _cachedProvider, limits: _cachedLimits }
   }
-  if (settings.provider !== 'chrome-nano' && settings.provider !== 'in-browser' && !settings.apiKey) {
+  if (settings.provider !== 'chrome-nano' && settings.provider !== 'in-browser' && settings.provider !== 'wllama' && !settings.apiKey) {
     throw new Error('No API key configured. Open Settings to add one.')
   }
   const { getModelLimits } = await import('./providers/types')

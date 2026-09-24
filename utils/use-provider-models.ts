@@ -18,7 +18,7 @@ export function useProviderModels(providerId: ProviderID, apiKey: string) {
   const [refreshCounter, setRefreshCounter] = useState(0)
 
   useEffect(() => {
-    if (providerId !== 'openrouter') {
+    if (providerId !== 'openrouter' && providerId !== 'wllama') {
       setModels(null)
       setLoading(false)
       setError(null)
